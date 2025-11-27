@@ -1,0 +1,32 @@
+{
+  "name": "hunter-irrigation-ecommerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless ecommerce platform with Vendure backend and Next.js storefront",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @hunter-irrigation/api dev & pnpm --filter @hunter-irrigation/storefront dev",
+    "build": "pnpm --filter @hunter-irrigation/api build && pnpm --filter @hunter-irrigation/storefront build",
+    "start": "pnpm --filter @hunter-irrigation/api start & pnpm --filter @hunter-irrigation/storefront start",
+    "lint": "pnpm --recursive lint",
+    "typecheck": "pnpm --recursive typecheck",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:build": "docker-compose build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "prettier": "^3.1.1",
+    "eslint": "^8.56.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
+

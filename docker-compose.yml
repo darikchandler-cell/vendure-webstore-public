@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hunter-irrigation-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vendure}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-vendure}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vendure}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hunter-irrigation-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: hunter-irrigation-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hunter-irrigation-network
+
+  vendure-api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: hunter-irrigation-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-vendure}
+      DB_USERNAME: ${POSTGRES_USER:-vendure}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SUPERADMIN_USERNAME: ${SUPERADMIN_USERNAME:-superadmin}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-superadmin}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hunter-irrigation-network
+    volumes:
+      - ./apps/api:/app
+      - /app/node_modules
+
+  vendure-worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.worker
+    container_name: hunter-irrigation-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-vendure}
+      DB_USERNAME: ${POSTGRES_USER:-vendure}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vendure-api:
+        condition: service_started
+    networks:
+      - hunter-irrigation-network
+    volumes:
+      - ./apps/api:/app
+      - /app/node_modules
+
+  storefront:
+    build:
+      context: ./apps/storefront
+      dockerfile: Dockerfile
+    container_name: hunter-irrigation-storefront
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_VENDURE_API_URL: http://vendure-api:3000
+      NEXT_PUBLIC_US_CHANNEL_TOKEN: ${NEXT_PUBLIC_US_CHANNEL_TOKEN:-}
+      NEXT_PUBLIC_CA_CHANNEL_TOKEN: ${NEXT_PUBLIC_CA_CHANNEL_TOKEN:-}
+    depends_on:
+      - vendure-api
+    networks:
+      - hunter-irrigation-network
+    volumes:
+      - ./apps/storefront:/app
+      - /app/node_modules
+      - /app/.next
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: hunter-irrigation-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - vendure-api
+      - storefront
+    networks:
+      - hunter-irrigation-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  hunter-irrigation-network:
+    driver: bridge
+
