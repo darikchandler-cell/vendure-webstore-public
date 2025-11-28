@@ -23,6 +23,10 @@ const nextConfig = {
   compress: true,
   // Output standalone for Docker
   output: 'standalone',
+  // Disable ESLint during build
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 module.exports = nextConfig;

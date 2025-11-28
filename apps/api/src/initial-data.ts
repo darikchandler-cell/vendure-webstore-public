@@ -9,7 +9,7 @@ export const initialData: InitialData = {
     { name: 'CA GST', percentage: 5 },
     { name: 'CA HST', percentage: 13 },
   ],
-  tax Zones: [
+  taxZones: [
     {
       name: 'United States',
       members: [{ code: 'US', name: 'United States' }],

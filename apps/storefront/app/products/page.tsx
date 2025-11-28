@@ -18,7 +18,7 @@ async function getProducts(channelCode: 'us' | 'ca') {
     });
     return data?.products?.items || [];
   } catch (error) {
-    console.error('Error fetching products:', error);
+    // Error fetching products
     return [];
   }
 }

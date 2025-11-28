@@ -2,8 +2,8 @@ import { VendureConfig } from '@vendure/core';
 import { AssetServerPlugin } from '@vendure/asset-server-plugin';
 import { AdminUiPlugin } from '@vendure/admin-ui-plugin';
 import { EmailPlugin } from '@vendure/email-plugin';
-import { JobQueuePlugin } from '@vendure/job-queue-plugin';
-import { S3AssetStoragePlugin } from '@vendure/s3-asset-storage-plugin';
+// JobQueuePlugin is built into Vendure core, no need to import
+// S3 plugin removed - use AssetServerPlugin with local storage or configure separately
 import path from 'path';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -38,7 +38,7 @@ export const config: VendureConfig = {
     username: process.env.DB_USERNAME || 'vendure',
     password: process.env.DB_PASSWORD || 'changeme',
     database: process.env.DB_NAME || 'vendure',
-    synchronize: false, // Always use migrations in production
+    synchronize: process.env.DB_SYNC === 'true', // Auto-create schema on first run
     logging: isDev,
     migrations: [path.join(__dirname, '../migrations/*.ts')],
   },
@@ -47,26 +47,10 @@ export const config: VendureConfig = {
   },
   customFields: {},
   plugins: [
-    // S3 Asset Storage (if configured) or default Asset Server
-    ...(process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY_ID
-      ? [
-          S3AssetStoragePlugin.init({
-            bucket: process.env.S3_BUCKET || '',
-            credentials: {
-              accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
-              secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
-            },
-            region: process.env.S3_REGION || 'us-east-1',
-            endpoint: process.env.S3_ENDPOINT,
-          }),
-        ]
-      : [
-          AssetServerPlugin.init({
-            route: 'assets',
-            assetUploadDir: path.join(__dirname, '../static/assets'),
-            port: 3000,
-          }),
-        ]),
+    AssetServerPlugin.init({
+      route: 'assets',
+      assetUploadDir: path.join(__dirname, '../static/assets'),
+    }),
     AdminUiPlugin.init({
       route: 'admin',
       port: 3000,
@@ -88,19 +72,8 @@ export const config: VendureConfig = {
         fromName: 'Hunter Irrigation',
       },
     }),
-    JobQueuePlugin.init({
-      pollInterval: 200,
-      ...(process.env.REDIS_HOST
-        ? {
-            queueOptions: {
-              connection: {
-                host: process.env.REDIS_HOST || 'localhost',
-                port: parseInt(process.env.REDIS_PORT || '6379', 10),
-              },
-            },
-          }
-        : {}),
-    }),
+    // Job queue is configured via dbConnectionOptions
+    // Redis can be added later if needed
   ],
 };
 

@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"  # Restricted to localhost only for security
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vendure}"]
       interval: 10s
@@ -29,7 +29,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"  # Restricted to localhost only for security
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -128,19 +128,11 @@ services:
     image: caddy:2-alpine
     container_name: hunter-irrigation-caddy
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+    network_mode: "host"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on:
-      - vendure-api
-      - storefront
-    networks:
-      - hunter-irrigation-network
 
 volumes:
   postgres_data:

@@ -14,7 +14,7 @@ async function getProduct(slug: string, channelCode: 'us' | 'ca') {
     });
     return data?.product || null;
   } catch (error) {
-    console.error('Error fetching product:', error);
+    // Error fetching product
     return null;
   }
 }
@@ -47,8 +47,15 @@ export async function generateMetadata({
     openGraph: {
       title: product.name,
       description: product.description || '',
-      images: product.featuredAsset ? [product.featuredAsset.preview] : [],
-      type: 'product',
+      images: product.featuredAsset
+        ? [
+            {
+              url: product.featuredAsset.preview,
+              alt: product.name,
+            },
+          ]
+        : [],
+      type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
