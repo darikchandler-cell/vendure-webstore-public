@@ -54,6 +54,15 @@ export const config: VendureConfig = {
     AdminUiPlugin.init({
       route: 'admin',
       port: 3000,
+      appApiPath: 'admin-api',
+      // Configure base URL for production to prevent vendure.io asset requests
+      ...(isDev
+        ? {}
+        : {
+            // In production, ensure Admin UI uses the correct domain
+            // This prevents requests to vendure.io domains
+            baseHref: '/admin',
+          }),
     }),
     EmailPlugin.init({
       handlers: [],

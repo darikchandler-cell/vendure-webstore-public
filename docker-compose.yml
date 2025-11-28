@@ -112,6 +112,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3001
       NEXT_PUBLIC_VENDURE_API_URL: http://vendure-api:3000
       NEXT_PUBLIC_US_CHANNEL_TOKEN: ${NEXT_PUBLIC_US_CHANNEL_TOKEN:-}
       NEXT_PUBLIC_CA_CHANNEL_TOKEN: ${NEXT_PUBLIC_CA_CHANNEL_TOKEN:-}
@@ -119,6 +120,8 @@ services:
       - vendure-api
     networks:
       - hunter-irrigation-network
+    ports:
+      - "127.0.0.1:3001:3001"  # Expose to localhost for Caddy
     volumes:
       - ./apps/storefront:/app
       - /app/node_modules

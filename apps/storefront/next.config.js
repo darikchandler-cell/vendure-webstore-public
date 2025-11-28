@@ -27,6 +27,12 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Ensure proper static file serving
+  trailingSlash: false,
+  // Power by header
+  poweredByHeader: false,
+  // React strict mode (helps catch hydration issues)
+  reactStrictMode: true,
 };
 
 module.exports = nextConfig;
