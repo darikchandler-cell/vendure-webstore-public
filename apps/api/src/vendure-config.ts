@@ -11,6 +11,7 @@ const isDev = process.env.NODE_ENV === 'development';
 export const config: VendureConfig = {
   apiOptions: {
     port: 3000,
+    hostname: isDev ? 'localhost' : '0.0.0.0', // Listen on all interfaces in production
     adminApiPath: 'admin-api',
     shopApiPath: 'shop-api',
     cors: {
@@ -55,7 +56,7 @@ export const config: VendureConfig = {
       route: 'admin',
       port: 3000,
       appApiPath: 'admin-api',
-      // Configure base URL for production to prevent vendure.io asset requests
+      // Configure for production to prevent vendure.io asset requests
       ...(isDev
         ? {}
         : {
