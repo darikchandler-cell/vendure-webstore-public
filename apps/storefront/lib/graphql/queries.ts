@@ -8,9 +8,19 @@ export const GET_PRODUCTS = gql`
         name
         slug
         description
+        shortDescription
+        metaTitle
+        metaDescription
+        keywords
         featuredAsset {
           id
           preview
+        }
+        brand {
+          id
+          name
+          slug
+          logoAssetId
         }
         variants {
           id
@@ -19,6 +29,12 @@ export const GET_PRODUCTS = gql`
           priceWithTax
           currencyCode
           sku
+          weight
+          length
+          width
+          height
+          customStockStatus
+          upc
         }
       }
       totalItems
@@ -33,6 +49,10 @@ export const GET_PRODUCT_BY_SLUG = gql`
       name
       slug
       description
+      shortDescription
+      metaTitle
+      metaDescription
+      keywords
       featuredAsset {
         id
         preview
@@ -41,6 +61,14 @@ export const GET_PRODUCT_BY_SLUG = gql`
         id
         preview
       }
+      brand {
+        id
+        name
+        slug
+        description
+        logoAssetId
+        websiteUrl
+      }
       variants {
         id
         name
@@ -48,6 +76,12 @@ export const GET_PRODUCT_BY_SLUG = gql`
         priceWithTax
         currencyCode
         sku
+        weight
+        length
+        width
+        height
+        customStockStatus
+        upc
       }
       facetValues {
         facet {

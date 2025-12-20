@@ -1,0 +1,62 @@
+<div class="brand-list">
+  <vdr-page-header>
+    <vdr-page-title title="Brands"></vdr-page-title>
+    <vdr-page-breadcrumbs>
+      <vdr-breadcrumb label="Catalog" [link]="['/catalog']"></vdr-breadcrumb>
+      <vdr-breadcrumb label="Brands"></vdr-breadcrumb>
+    </vdr-page-breadcrumbs>
+    <vdr-page-actions>
+      <button class="btn btn-primary" (click)="createBrand()">
+        <clr-icon shape="plus"></clr-icon>
+        Create Brand
+      </button>
+    </vdr-page-actions>
+  </vdr-page-header>
+
+  <vdr-data-table
+    [items]="brands"
+    [itemsPerPage]="pageSize"
+    [totalItems]="totalItems"
+    [currentPage]="currentPage"
+    (pageChange)="onPageChange($event)"
+    [loading]="isLoading"
+  >
+    <vdr-dt-column>Name</vdr-dt-column>
+    <vdr-dt-column>Slug</vdr-dt-column>
+    <vdr-dt-column>Website</vdr-dt-column>
+    <vdr-dt-column>Created</vdr-dt-column>
+    <vdr-dt-column>Actions</vdr-dt-column>
+
+    <vdr-dt-row *vdrFor="let brand of brands">
+      <vdr-dt-cell>
+        <a [routerLink]="['/catalog/brands', brand.id]">{{ brand.name }}</a>
+      </vdr-dt-cell>
+      <vdr-dt-cell>{{ brand.slug || '-' }}</vdr-dt-cell>
+      <vdr-dt-cell>
+        <a *ngIf="brand.websiteUrl" [href]="brand.websiteUrl" target="_blank">
+          {{ brand.websiteUrl }}
+        </a>
+        <span *ngIf="!brand.websiteUrl">-</span>
+      </vdr-dt-cell>
+      <vdr-dt-cell>
+        {{ brand.createdAt | date: 'short' }}
+      </vdr-dt-cell>
+      <vdr-dt-cell>
+        <vdr-row-action-menu>
+          <vdr-row-action-menu-item
+            iconShape="edit"
+            label="Edit"
+            (click)="editBrand(brand)"
+          ></vdr-row-action-menu-item>
+          <vdr-row-action-menu-item
+            iconShape="trash"
+            label="Delete"
+            (click)="deleteBrand(brand)"
+          ></vdr-row-action-menu-item>
+        </vdr-row-action-menu>
+      </vdr-dt-cell>
+    </vdr-dt-row>
+  </vdr-data-table>
+</div>
+
+

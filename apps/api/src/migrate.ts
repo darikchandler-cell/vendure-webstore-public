@@ -1,13 +1,10 @@
 import 'reflect-metadata';
-import { bootstrap } from '@vendure/core';
-import { config } from './vendure-config';
 import { runMigrations } from '@vendure/core';
+import { config } from './vendure-config';
 
 const command = process.argv[2];
 
 async function migrate() {
-  const app = await bootstrap(config);
-
   try {
     switch (command) {
       case 'create':
@@ -15,7 +12,8 @@ async function migrate() {
         console.log('  typeorm migration:create -n MigrationName');
         break;
       case 'run':
-        await runMigrations(app);
+        // Pass config, not app instance
+        await runMigrations(config);
         console.log('✅ Migrations completed');
         break;
       case 'revert':

@@ -3,10 +3,21 @@ import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { getChannelConfig, type ChannelCode } from './channel';
 
+const uri = (typeof window === 'undefined' && process.env.SERVER_API_URL)
+    ? `${process.env.SERVER_API_URL}/shop-api`
+    : (process.env.NEXT_PUBLIC_VENDURE_API_URL
+      ? (process.env.NEXT_PUBLIC_VENDURE_API_URL.includes('shop-api') 
+          ? process.env.NEXT_PUBLIC_VENDURE_API_URL 
+          : `${process.env.NEXT_PUBLIC_VENDURE_API_URL}/shop-api`)
+      : 'http://localhost:3000/shop-api');
+
+if (typeof window === 'undefined') {
+  console.log(`[Server] Apollo Client URI: ${uri}`);
+  console.log(`[Server] SERVER_API_URL: ${process.env.SERVER_API_URL}`);
+}
+
 const httpLink = createHttpLink({
-  uri: process.env.NEXT_PUBLIC_VENDURE_API_URL
-    ? `${process.env.NEXT_PUBLIC_VENDURE_API_URL}/shop-api`
-    : 'http://localhost:3000/shop-api',
+  uri,
 });
 
 /**

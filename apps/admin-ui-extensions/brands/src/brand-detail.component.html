@@ -1,0 +1,94 @@
+<div class="brand-detail">
+  <vdr-page-header>
+    <vdr-page-title [title]="isNew ? 'Create Brand' : 'Edit Brand'"></vdr-page-title>
+    <vdr-page-breadcrumbs>
+      <vdr-breadcrumb label="Catalog" [link]="['/catalog']"></vdr-breadcrumb>
+      <vdr-breadcrumb label="Brands" [link]="['/catalog/brands']"></vdr-breadcrumb>
+      <vdr-breadcrumb [label]="isNew ? 'Create' : 'Edit'"></vdr-breadcrumb>
+    </vdr-page-breadcrumbs>
+    <vdr-page-actions>
+      <button class="btn btn-secondary" (click)="cancel()">Cancel</button>
+      <button
+        class="btn btn-primary"
+        (click)="save()"
+        [disabled]="brandForm.invalid || isSaving"
+      >
+        <span *ngIf="!isSaving">Save</span>
+        <span *ngIf="isSaving">Saving...</span>
+      </button>
+    </vdr-page-actions>
+  </vdr-page-header>
+
+  <vdr-card *ngIf="!isLoading">
+    <vdr-card-header>
+      <vdr-card-title>Brand Details</vdr-card-title>
+    </vdr-card-header>
+    <vdr-card-content>
+      <form [formGroup]="brandForm">
+        <vdr-form-field label="Name" [required]="true">
+          <input
+            type="text"
+            formControlName="name"
+            class="form-control"
+            placeholder="Brand name"
+          />
+          <vdr-field-error
+            *ngIf="brandForm.get('name')?.hasError('required')"
+          >
+            Name is required
+          </vdr-field-error>
+        </vdr-form-field>
+
+        <vdr-form-field label="Slug">
+          <input
+            type="text"
+            formControlName="slug"
+            class="form-control"
+            placeholder="brand-slug"
+          />
+          <small class="form-text text-muted">
+            URL-friendly identifier (auto-generated from name if left empty)
+          </small>
+        </vdr-form-field>
+
+        <vdr-form-field label="Description">
+          <textarea
+            formControlName="description"
+            class="form-control"
+            rows="4"
+            placeholder="Brand description"
+          ></textarea>
+        </vdr-form-field>
+
+        <vdr-form-field label="Website URL">
+          <input
+            type="url"
+            formControlName="websiteUrl"
+            class="form-control"
+            placeholder="https://example.com"
+          />
+        </vdr-form-field>
+
+        <vdr-form-field label="Logo Asset ID">
+          <input
+            type="text"
+            formControlName="logoAssetId"
+            class="form-control"
+            placeholder="Asset ID"
+          />
+          <small class="form-text text-muted">
+            ID of the asset to use as the brand logo
+          </small>
+        </vdr-form-field>
+      </form>
+    </vdr-card-content>
+  </vdr-card>
+
+  <vdr-card *ngIf="isLoading">
+    <vdr-card-content>
+      <vdr-spinner></vdr-spinner>
+    </vdr-card-content>
+  </vdr-card>
+</div>
+
+

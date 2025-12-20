@@ -9,7 +9,7 @@ Headless ecommerce platform built with Vendure (backend) and Next.js (storefront
 - **Database**: PostgreSQL 15
 - **Cache/Queue**: Redis 7
 - **Reverse Proxy**: Caddy
-- **Containerization**: Docker + docker-compose
+- **Deployment**: Native installation with systemd services (recommended) or Docker
 
 ## Project Structure
 
@@ -28,9 +28,9 @@ Headless ecommerce platform built with Vendure (backend) and Next.js (storefront
 ### Prerequisites
 
 - Node.js 20+ and pnpm 8+
-- Docker and Docker Compose
-- PostgreSQL 15 (or use Docker)
-- Redis 7 (or use Docker)
+- PostgreSQL 15
+- Redis 7
+- Caddy (for reverse proxy and SSL)
 
 ### Development Setup
 
@@ -50,7 +50,11 @@ cp apps/storefront/.env.example apps/storefront/.env
 cp .env.example .env
 ```
 
-3. **Start services with Docker:**
+3. **Start services:**
+
+For production deployment, see [DEPLOYMENT_NATIVE.md](./DEPLOYMENT_NATIVE.md) for native installation.
+
+For development with Docker:
 
 ```bash
 pnpm docker:up
@@ -93,10 +97,13 @@ pnpm start
 # Lint all apps
 pnpm lint
 
-# Docker commands
+# Docker commands (development only)
 pnpm docker:up      # Start all services
 pnpm docker:down    # Stop all services
 pnpm docker:logs    # View logs
+
+# Production deployment
+# See DEPLOYMENT_NATIVE.md for native installation guide
 pnpm docker:build   # Rebuild images
 ```
 

@@ -38,3 +38,6 @@ export class AddAuthStrategyColumn1732782000000 implements MigrationInterface {
 }
 
 
+
+
+

@@ -1,0 +1,25 @@
+import { createRequestHandler } from '@remix-run/node';
+import * as build from '@remix-run/dev/server-build';
+import { setApiUrl } from './app/constants.js';
+
+// Set the API URL from environment variable
+if (typeof process !== 'undefined' && process.env.VENDURE_API_URL) {
+  setApiUrl(process.env.VENDURE_API_URL);
+}
+
+export default createRequestHandler({
+  build,
+  mode: process.env.NODE_ENV,
+  getLoadContext: () => {
+    // Make environment variables available to the app
+    return {
+      SESSION_SECRET: process.env.SESSION_SECRET,
+      VENDURE_API_URL: process.env.VENDURE_API_URL,
+      STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+      GA_MEASUREMENT_ID: process.env.GA_MEASUREMENT_ID,
+      SENTRY_DSN: process.env.SENTRY_DSN,
+      APP_URL: process.env.APP_URL,
+    };
+  },
+});
+

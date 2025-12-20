@@ -1,0 +1,27 @@
+================================================================================
+COMPLETE EMAIL SETUP AND TEST - RUN THIS ON PRODUCTION SERVER
+================================================================================
+
+SSH to your server and run:
+
+    ssh root@178.156.194.89
+    cd /opt/hunter-irrigation
+    bash infra/complete-email-setup.sh
+
+OR copy and paste this entire script:
+
+    cd /opt/hunter-irrigation
+    bash infra/complete-email-setup.sh
+
+This script will:
+1. ✅ Configure SES SMTP credentials
+2. ✅ Install dependencies
+3. ✅ Send test emails from both channels
+
+Expected output:
+- Two emails to darikchandler@gmail.com
+- One from orders@hunterirrigationsupply.com (US)
+- One from orders@hunterirrigation.ca (CA)
+
+================================================================================
+

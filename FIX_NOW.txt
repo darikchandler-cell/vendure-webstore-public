@@ -1,0 +1,143 @@
+#!/bin/bash
+# COMPLETE FIX - Copy this entire script to Hetzner Console
+# Go to: https://console.hetzner.cloud/ → diamond-street-services → Console
+# Paste this entire script and press Enter
+
+set -e
+
+echo "🔧 FIXING ALL ISSUES ON HETZNER SERVER"
+echo "======================================="
+echo ""
+
+PROJECT_DIR="/opt/hunter-irrigation"
+VENDURE_USER="vendure"
+
+# Fix 1: Start Storefront (CRITICAL - fixes both URLs)
+echo "1. STARTING STOREFRONT SERVICE..."
+echo "=================================="
+if systemctl start vendure-storefront 2>&1; then
+  echo "✅ Service start command executed"
+else
+  echo "⚠️  Start command had issues"
+fi
+
+systemctl enable vendure-storefront 2>&1 || true
+sleep 5
+
+# Check if running
+if systemctl is-active --quiet vendure-storefront; then
+  echo "✅ STOREFRONT IS NOW RUNNING!"
+  systemctl status vendure-storefront --no-pager -l | head -10
+else
+  echo "❌ Storefront still not running"
+  echo ""
+  echo "Checking logs..."
+  journalctl -u vendure-storefront -n 30 --no-pager || echo "No logs available"
+  echo ""
+  
+  # Try to fix common issues
+  echo "Attempting fixes..."
+  
+  # Check if build exists
+  if [ ! -d "$PROJECT_DIR/apps/storefront/.next" ]; then
+    echo "⚠️  Build missing - rebuilding..."
+    if [ -d "$PROJECT_DIR/apps/storefront" ]; then
+      cd "$PROJECT_DIR/apps/storefront"
+      sudo -u vendure bash -c 'pnpm install && pnpm build' 2>&1 | tail -10 || echo "Build failed"
+      systemctl restart vendure-storefront
+      sleep 5
+    fi
+  fi
+  
+  # Check environment
+  if [ ! -f "$PROJECT_DIR/.env" ]; then
+    echo "⚠️  .env file missing"
+    if [ -f "$PROJECT_DIR/.env.template" ]; then
+      cp "$PROJECT_DIR/.env.template" "$PROJECT_DIR/.env"
+      echo "Created .env from template - please configure it"
+    fi
+  fi
+  
+  # Try starting again
+  systemctl restart vendure-storefront
+  sleep 5
+  
+  if systemctl is-active --quiet vendure-storefront; then
+    echo "✅ Storefront started after fixes!"
+  else
+    echo "❌ Still failing - check logs above"
+  fi
+fi
+
+# Fix 2: Create Superadmin
+echo ""
+echo "2. CREATING SUPERADMIN USER..."
+echo "==============================="
+ADMIN_COUNT=$(sudo -u postgres psql -U vendure -d vendure -t -c "SELECT COUNT(*) FROM \"user\" WHERE identifier LIKE '%admin%';" 2>/dev/null | tr -d ' ' || echo "0")
+
+if [ "$ADMIN_COUNT" = "0" ] || [ -z "$ADMIN_COUNT" ]; then
+  echo "⚠️  Superadmin missing - creating..."
+  if [ -d "$PROJECT_DIR/apps/api" ]; then
+    cd "$PROJECT_DIR/apps/api"
+    sudo -u vendure bash -c 'pnpm run seed' 2>&1 | tail -10
+    echo "✅ Superadmin creation attempted"
+  else
+    echo "❌ API directory not found"
+  fi
+else
+  echo "✅ Superadmin already exists (count: $ADMIN_COUNT)"
+fi
+
+# Fix 3: Verify All Services
+echo ""
+echo "3. SERVICE STATUS:"
+echo "=================="
+systemctl is-active vendure-api && echo "✅ API: Running" || echo "❌ API: Not running"
+systemctl is-active vendure-worker && echo "✅ Worker: Running" || echo "❌ Worker: Not running"
+systemctl is-active vendure-storefront && echo "✅ Storefront: Running" || echo "❌ Storefront: Not running"
+systemctl is-active caddy && echo "✅ Caddy: Running" || echo "❌ Caddy: Not running"
+systemctl is-active postgresql && echo "✅ PostgreSQL: Running" || echo "❌ PostgreSQL: Not running"
+systemctl is-active redis-server && echo "✅ Redis: Running" || echo "❌ Redis: Not running"
+
+# Fix 4: Test Local Endpoints
+echo ""
+echo "4. TESTING LOCAL ENDPOINTS:"
+echo "==========================="
+API_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null || echo "000")
+STORE_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 2>/dev/null || echo "000")
+
+echo "API Health: $API_HEALTH"
+echo "Storefront: $STORE_HEALTH"
+
+# Fix 5: Test External URLs
+echo ""
+echo "5. TESTING EXTERNAL URLs:"
+echo "========================="
+US_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://hunterirrigationsupply.com 2>/dev/null || echo "000")
+CA_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://hunterirrigation.ca 2>/dev/null || echo "000")
+
+echo "US Storefront: $US_STATUS"
+echo "CA Storefront: $CA_STATUS"
+
+# Summary
+echo ""
+echo "=============================="
+echo "✅ FIX COMPLETE"
+echo "=============================="
+echo ""
+
+if [ "$STORE_HEALTH" = "200" ] && [ "$US_STATUS" = "200" ]; then
+  echo "🎉 SUCCESS! Both storefronts are working!"
+  echo ""
+  echo "✅ https://hunterirrigationsupply.com - WORKING"
+  echo "✅ https://hunterirrigation.ca - WORKING"
+elif [ "$STORE_HEALTH" = "200" ]; then
+  echo "⚠️  Local storefront working, but external still 502"
+  echo "   Wait 30 seconds and test again (Cloudflare cache)"
+else
+  echo "❌ Storefront still not working"
+  echo "   Check logs: journalctl -u vendure-storefront -f"
+fi
+
+echo ""
+

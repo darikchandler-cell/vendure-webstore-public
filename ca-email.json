@@ -1,0 +1,23 @@
+{
+  "Source": "Hunter Irrigation Supply <orders@hunterirrigation.ca>",
+  "Destination": {
+    "ToAddresses": ["darikchandler@gmail.com"]
+  },
+  "Message": {
+    "Subject": {
+      "Data": "Test Email from CA Channel - Hunter Irrigation Supply",
+      "Charset": "UTF-8"
+    },
+    "Body": {
+      "Text": {
+        "Data": "This is a test email from the CA channel (hunterirrigation.ca) to verify channel-specific email addresses.\n\nFrom: Hunter Irrigation Supply <orders@hunterirrigation.ca>\nChannel: CA\nTimestamp: 2025-12-02T07:00:00Z",
+        "Charset": "UTF-8"
+      },
+      "Html": {
+        "Data": "<h2>Test Email from CA Channel</h2><p>This is a test email from the CA channel to verify channel-specific email addresses.</p><p><strong>From:</strong> Hunter Irrigation Supply &lt;orders@hunterirrigation.ca&gt;</p><p><strong>Channel:</strong> CA (hunterirrigation.ca)</p><p><strong>Timestamp:</strong> 2025-12-02T07:00:00Z</p>",
+        "Charset": "UTF-8"
+      }
+    }
+  }
+}
+

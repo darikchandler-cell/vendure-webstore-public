@@ -8,17 +8,29 @@ import { Metadata } from 'next';
 async function getProducts(channelCode: 'us' | 'ca') {
   const client = createApolloClient(channelCode);
   try {
-    const { data } = await client.query({
+    const { data, errors } = await client.query({
       query: GET_PRODUCTS,
       variables: {
         options: {
           take: 50,
         },
       },
+      fetchPolicy: 'no-cache', // Always fetch fresh data
     });
-    return data?.products?.items || [];
+    
+    if (errors) {
+      console.error('GraphQL errors fetching products:', errors);
+    }
+    
+    if (!data?.products?.items) {
+      console.warn('No products returned from API');
+      return [];
+    }
+    
+    return data.products.items;
   } catch (error) {
-    // Error fetching products
+    console.error('Error fetching products:', error);
+    // Return empty array but log the error for debugging
     return [];
   }
 }
@@ -37,6 +49,9 @@ export default async function ProductsPage() {
   const headersList = await headers();
   const channel = getChannelFromHeaders(headersList);
   const products = await getProducts(channel.code);
+  
+  // Debug logging
+  console.log(`[ProductsPage] Channel: ${channel.code}, Products count: ${products.length}`);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,8 +75,14 @@ export default async function ProductsPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">All Products</h1>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((product: any) => (
+        {products.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No products available at this time.</p>
+            <p className="text-gray-400 text-sm mt-2">Please check back later or contact support.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {products.map((product: any) => (
             <Link
               key={product.id}
               href={`/product/${product.slug}`}
@@ -86,8 +107,9 @@ export default async function ProductsPage() {
                 )}
               </div>
             </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

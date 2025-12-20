@@ -1,42 +1,32 @@
-import { InitialData, LanguageCode, Permission } from '@vendure/core';
+import { InitialData, LanguageCode, Permission, dummyPaymentHandler } from '@vendure/core';
 
 export const initialData: InitialData = {
   defaultLanguage: LanguageCode.en,
-  defaultZone: 'North America',
+  defaultZone: 'United States',
   taxRates: [
     { name: 'US Standard Tax', percentage: 0 },
     { name: 'US Sales Tax', percentage: 8.5 },
     { name: 'CA GST', percentage: 5 },
     { name: 'CA HST', percentage: 13 },
   ],
-  taxZones: [
-    {
-      name: 'United States',
-      members: [{ code: 'US', name: 'United States' }],
-    },
-    {
-      name: 'Canada',
-      members: [{ code: 'CA', name: 'Canada' }],
-    },
-  ],
   shippingMethods: [
     {
       name: 'Standard Shipping',
       price: 1000, // $10.00 in cents
-      description: 'Standard shipping within 5-7 business days',
     },
     {
       name: 'Express Shipping',
       price: 2500, // $25.00 in cents
-      description: 'Express shipping within 2-3 business days',
     },
   ],
   paymentMethods: [
     {
       name: 'Standard Payment',
       handler: {
-        code: 'standard-payment-handler',
-        arguments: [],
+        code: dummyPaymentHandler.code,
+        arguments: [
+          { name: 'automaticSettle', value: 'true' },
+        ],
       },
     },
   ],
@@ -53,9 +43,5 @@ export const initialData: InitialData = {
       assetPaths: [],
     },
   ],
-  initialData: {
-    adminEmailAddress: process.env.SUPERADMIN_EMAIL || 'admin@hunterirrigationsupply.com',
-    adminPassword: process.env.SUPERADMIN_PASSWORD || 'superadmin',
-  },
 };
 

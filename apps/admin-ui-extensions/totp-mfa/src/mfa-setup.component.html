@@ -1,0 +1,158 @@
+<div class="mfa-setup-container">
+  <vdr-page-header>
+    <vdr-page-title title="Two-Factor Authentication"></vdr-page-title>
+  </vdr-page-header>
+
+  <vdr-card>
+    <div class="mfa-content">
+      <!-- Status Display -->
+      <div *ngIf="setupStep === 'initial'">
+        <div class="status-section">
+          <h3>Current Status</h3>
+          <p *ngIf="isEnabled" class="status-enabled">
+            ✅ Two-factor authentication is <strong>enabled</strong>
+          </p>
+          <p *ngIf="!isEnabled" class="status-disabled">
+            ⚠️ Two-factor authentication is <strong>disabled</strong>
+          </p>
+        </div>
+
+        <!-- Enable MFA -->
+        <div *ngIf="!isEnabled" class="setup-section">
+          <h3>Enable Two-Factor Authentication</h3>
+          <p>
+            Protect your account with an additional layer of security. You'll
+            need an authenticator app like Google Authenticator or Authy.
+          </p>
+          <vdr-form-field label="Enter your password to continue">
+            <input
+              type="password"
+              [(ngModel)]="password"
+              placeholder="Your password"
+              class="clr-input"
+            />
+          </vdr-form-field>
+          <button
+            class="btn btn-primary"
+            (click)="startSetup()"
+            [disabled]="isLoading || !password"
+          >
+            <clr-icon shape="shield-check"></clr-icon>
+            Start Setup
+          </button>
+        </div>
+
+        <!-- Disable MFA -->
+        <div *ngIf="isEnabled" class="disable-section">
+          <h3>Disable Two-Factor Authentication</h3>
+          <p>
+            You can disable two-factor authentication by entering your password
+            below.
+          </p>
+          <vdr-form-field label="Enter your password">
+            <input
+              type="password"
+              [(ngModel)]="password"
+              placeholder="Your password"
+              class="clr-input"
+            />
+          </vdr-form-field>
+          <button
+            class="btn btn-outline"
+            (click)="disableTotp()"
+            [disabled]="isLoading || !password"
+          >
+            Disable MFA
+          </button>
+        </div>
+      </div>
+
+      <!-- QR Code Display -->
+      <div *ngIf="setupStep === 'qr-display'" class="qr-section">
+        <h3>Scan QR Code</h3>
+        <p>
+          Scan this QR code with your authenticator app (Google Authenticator,
+          Authy, etc.)
+        </p>
+        <div class="qr-code-container" *ngIf="qrCodeUri">
+          <qrcode
+            [qrdata]="qrCodeUri"
+            [width]="256"
+            [errorCorrectionLevel]="'M'"
+            [colorDark]="'#000000'"
+            [colorLight]="'#ffffff'"
+          ></qrcode>
+        </div>
+        <div class="manual-entry" *ngIf="secret">
+          <p><strong>Or enter this code manually:</strong></p>
+          <code>{{ secret }}</code>
+        </div>
+        <div class="verification-step">
+          <h4>Enter Verification Code</h4>
+          <p>Enter the 6-digit code from your authenticator app:</p>
+          <vdr-form-field label="Verification Code">
+            <input
+              type="text"
+              [(ngModel)]="totpToken"
+              placeholder="000000"
+              maxlength="6"
+              class="clr-input"
+              (keyup.enter)="verifyAndEnable()"
+            />
+          </vdr-form-field>
+          <div class="button-group">
+            <button
+              class="btn btn-primary"
+              (click)="verifyAndEnable()"
+              [disabled]="isLoading || totpToken.length !== 6"
+            >
+              Verify & Enable
+            </button>
+            <button
+              class="btn btn-outline"
+              (click)="resetSetup()"
+              [disabled]="isLoading"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Success Message -->
+      <div *ngIf="setupStep === 'enabled'">
+        <div class="success-message">
+          <clr-icon shape="success-standard" size="48"></clr-icon>
+          <h3>Two-Factor Authentication Enabled!</h3>
+          <p>
+            Your account is now protected with two-factor authentication. You
+            will be required to enter a code from your authenticator app each
+            time you log in.
+          </p>
+          <button class="btn btn-primary" (click)="resetSetup()">
+            Done
+          </button>
+        </div>
+      </div>
+
+      <!-- Error Messages -->
+      <vdr-alert
+        *ngIf="errorMessage"
+        type="error"
+        (close)="errorMessage = null"
+      >
+        {{ errorMessage }}
+      </vdr-alert>
+
+      <!-- Success Messages -->
+      <vdr-alert
+        *ngIf="successMessage"
+        type="success"
+        (close)="successMessage = null"
+      >
+        {{ successMessage }}
+      </vdr-alert>
+    </div>
+  </vdr-card>
+</div>
+

@@ -39,7 +39,7 @@ export function detectChannel(hostname?: string): ChannelCode {
 
   const host = hostname.toLowerCase();
 
-  if (host.includes('hunterirrigation.ca') || host.includes('hunterirrigation.ca')) {
+  if (host.includes('hunterirrigation.ca')) {
     return 'ca';
   }
 

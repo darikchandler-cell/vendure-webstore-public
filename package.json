@@ -7,9 +7,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "pnpm --filter @hunter-irrigation/api dev & pnpm --filter @hunter-irrigation/storefront dev",
-    "build": "pnpm --filter @hunter-irrigation/api build && pnpm --filter @hunter-irrigation/storefront build",
-    "start": "pnpm --filter @hunter-irrigation/api start & pnpm --filter @hunter-irrigation/storefront start",
+    "dev": "pnpm --filter @hunter-irrigation/api dev & pnpm --filter @hunter-irrigation/storefront dev & pnpm --filter @hunter-irrigation/remix-storefront dev",
+    "build": "pnpm --filter @hunter-irrigation/api build && pnpm --filter @hunter-irrigation/storefront build && pnpm --filter @hunter-irrigation/remix-storefront build",
+    "start": "pnpm --filter @hunter-irrigation/api start & pnpm --filter @hunter-irrigation/storefront start & pnpm --filter @hunter-irrigation/remix-storefront start",
     "lint": "pnpm --recursive lint",
     "typecheck": "pnpm --recursive typecheck",
     "docker:up": "docker-compose up -d",

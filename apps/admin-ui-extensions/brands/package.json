@@ -1,0 +1,20 @@
+{
+  "name": "@hunter-irrigation/admin-ui-brands",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Brands Management Admin UI Extension for Vendure",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vendure/admin-ui": "^2.3.3",
+    "@vendure/ui-devkit": "^2.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3"
+  }
+}
+
+

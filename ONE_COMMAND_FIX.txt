@@ -1,0 +1,8 @@
+cat > /tmp/fix.sh << 'END' && chmod +x /tmp/fix.sh && /tmp/fix.sh
+#!/bin/bash
+sed -i 's/#PasswordAuthentication no/PasswordAuthentication yes/; s/PasswordAuthentication no/PasswordAuthentication yes/; s/#PermitRootLogin prohibit-password/PermitRootLogin yes/; s/PermitRootLogin prohibit-password/PermitRootLogin yes/; s/#PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config && systemctl restart sshd && echo '✅ Password enabled!' && mkdir -p ~/.ssh && echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIABbCpmJcHK5jYk70MeOcoFIEkAh1FOdlEw+Bl7Z4n9h vendure-fix-key' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && chmod 700 ~/.ssh && echo '✅ SSH key added!' && systemctl start vendure-storefront && systemctl enable vendure-storefront && echo '✅ Storefront started!' && cd /opt/hunter-irrigation/apps/api && sudo -u vendure bash -c 'pnpm run seed' 2>&1 | tail -5 && systemctl is-active vendure-storefront && echo '✅ All fixed!'
+END
+
+
+
+

@@ -9,8 +9,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-vendure}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: ${POSTGRES_DB:-vendure}
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # - ./infra/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    # Use custom config
+    # command: postgres -c config_file=/etc/postgresql/postgresql.conf
     ports:
       - "127.0.0.1:5432:5432"  # Restricted to localhost only for security
     healthcheck:
@@ -18,6 +23,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
     networks:
       - hunter-irrigation-network
 
@@ -25,7 +39,12 @@ services:
     image: redis:7-alpine
     container_name: hunter-irrigation-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
     volumes:
       - redis_data:/data
     ports:
@@ -35,6 +54,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     networks:
       - hunter-irrigation-network
 
@@ -67,11 +95,29 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', () => process.exit(1))\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    ports:
+      - "127.0.0.1:3000:3000"  # Expose to localhost for Caddy
     networks:
       - hunter-irrigation-network
-    volumes:
-      - ./apps/api:/app
-      - /app/node_modules
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   vendure-worker:
     build:
@@ -100,34 +146,79 @@ services:
         condition: service_healthy
       vendure-api:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep '[n]ode dist/worker.js' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - hunter-irrigation-network
-    volumes:
-      - ./apps/api:/app
-      - /app/node_modules
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   storefront:
     build:
       context: ./apps/storefront
       dockerfile: Dockerfile
+      args:
+        # Pass build-time environment variables (required for NEXT_PUBLIC_ vars)
+        # These are bundled into JavaScript during build, not at runtime
+        NEXT_PUBLIC_VENDURE_API_URL: ${NEXT_PUBLIC_VENDURE_API_URL:-https://hunterirrigationsupply.com}
+        NEXT_PUBLIC_US_CHANNEL_TOKEN: ${NEXT_PUBLIC_US_CHANNEL_TOKEN:-us-channel-token}
+        NEXT_PUBLIC_CA_CHANNEL_TOKEN: ${NEXT_PUBLIC_CA_CHANNEL_TOKEN:-ca-channel-token}
     container_name: hunter-irrigation-storefront
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3001
-      NEXT_PUBLIC_VENDURE_API_URL: http://vendure-api:3000
-      NEXT_PUBLIC_US_CHANNEL_TOKEN: ${NEXT_PUBLIC_US_CHANNEL_TOKEN:-}
-      NEXT_PUBLIC_CA_CHANNEL_TOKEN: ${NEXT_PUBLIC_CA_CHANNEL_TOKEN:-}
+      SERVER_API_URL: http://hunter-irrigation-api:3000
+      # Note: NEXT_PUBLIC_ vars are set at build time via build args above
+      # Runtime env vars won't affect already-built JavaScript
     depends_on:
-      - vendure-api
+      vendure-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3001', (r) => {process.exit(r.statusCode < 500 ? 0 : 1)}).on('error', () => process.exit(1))\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     networks:
       - hunter-irrigation-network
     ports:
       - "127.0.0.1:3001:3001"  # Expose to localhost for Caddy
-    volumes:
-      - ./apps/storefront:/app
-      - /app/node_modules
-      - /app/.next
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # CRITICAL: Do NOT mount volumes in production - they overwrite the built .next directory
+    # The Dockerfile builds the app and copies .next/standalone and .next/static into the image
+    # Mounting ./apps/storefront:/app would overwrite these built artifacts, causing 400 errors
+    # volumes:
+    #   - ./apps/storefront:/app
+    #   - /app/node_modules
+    #   - /app/.next
 
   caddy:
     image: caddy:2-alpine
@@ -138,6 +229,17 @@ services:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

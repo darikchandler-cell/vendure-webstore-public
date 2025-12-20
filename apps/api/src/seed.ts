@@ -5,14 +5,24 @@ import { config } from './vendure-config';
 import { initialData } from './initial-data';
 
 const populateData = async () => {
-  const app = await bootstrap(config);
+  // Override port to avoid conflict with running server
+  // And remove plugins that might start servers (AdminUI, AssetServer)
+  const scriptConfig = {
+    ...config,
+    apiOptions: {
+      ...config.apiOptions,
+      port: 3004, // Use a different port than create-channels
+    },
+    plugins: config.plugins?.filter(p => 
+      !p.constructor.name.includes('AdminUiPlugin') && 
+      !p.constructor.name.includes('AssetServerPlugin')
+    ) || [],
+  };
+
+  const app: any = await bootstrap(scriptConfig);
   await populate(
     () => app,
-    initialData,
-    (err) => {
-      console.error('Error populating data:', err);
-      process.exit(1);
-    }
+    initialData
   );
   console.log('Data populated successfully');
   process.exit(0);

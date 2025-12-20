@@ -1,0 +1,220 @@
+import {
+  Allow,
+  Ctx,
+  RequestContext,
+  TransactionalConnection,
+  AdministratorService,
+  PasswordCipher,
+  Permission,
+} from '@vendure/core';
+import { Args, Mutation, Query, Resolver } from 'type-graphql';
+import { authenticator } from 'otplib';
+import { TotpSetupTemp } from './entities/totp-setup-temp.entity';
+
+/**
+ * GraphQL resolver for TOTP MFA operations
+ */
+@Resolver()
+export class TotpMfaAdminResolver {
+  constructor(
+    private connection: TransactionalConnection,
+    private administratorService: AdministratorService,
+    private passwordCipher: PasswordCipher,
+  ) {}
+
+  @Query()
+  @Allow(Permission.Authenticated)
+  async isTotpEnabled(@Ctx() ctx: RequestContext): Promise<boolean> {
+    if (!ctx.activeUserId) {
+      return false;
+    }
+    const administrator = await this.administratorService.findOneByUserId(ctx, ctx.activeUserId);
+    const customFields = administrator?.customFields as any;
+    return !!(customFields?.totpSecret);
+  }
+
+  @Mutation()
+  @Allow(Permission.Authenticated)
+  async initTotpSetup(
+    @Ctx() ctx: RequestContext,
+    @Args() args: { password: string },
+  ): Promise<{ secret: string; qrCodeUri: string }> {
+    if (!ctx.activeUserId) {
+      throw new Error('Not authenticated');
+    }
+    
+    const administrator = await this.administratorService.findOneByUserId(ctx, ctx.activeUserId);
+    if (!administrator) {
+      throw new Error('Administrator not found');
+    }
+
+    // Verify password
+    const passwordValid = await this.passwordCipher.check(
+      args.password,
+      administrator.user.passwordHash,
+    );
+    if (!passwordValid) {
+      throw new Error('Invalid password');
+    }
+
+    const customFields = administrator.customFields as any;
+    if (customFields?.totpSecret) {
+      throw new Error('TOTP is already enabled');
+    }
+
+    // Generate new secret
+    const secret = authenticator.generateSecret();
+    const serviceName = 'Vendure Admin';
+    const accountName = administrator.emailAddress;
+    const qrCodeUri = authenticator.keyuri(accountName, serviceName, secret);
+
+    // Store temporarily in database (expires in 10 minutes)
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    // Delete any existing temp records for this admin
+    await this.connection
+      .getRepository(ctx, TotpSetupTemp)
+      .delete({ administratorId: Number(administrator.id) });
+
+    const tempRecord = this.connection.getRepository(ctx, TotpSetupTemp).create({
+      administratorId: Number(administrator.id),
+      secret,
+      expiresAt,
+    });
+
+    await this.connection.getRepository(ctx, TotpSetupTemp).save(tempRecord);
+
+    return {
+      secret,
+      qrCodeUri,
+    };
+  }
+
+  @Mutation()
+  @Allow(Permission.Authenticated)
+  async enableTotp(
+    @Ctx() ctx: RequestContext,
+    @Args() args: { token: string },
+  ): Promise<{ success: boolean }> {
+    if (!ctx.activeUserId) {
+      throw new Error('Not authenticated');
+    }
+    
+    const administrator = await this.administratorService.findOneByUserId(ctx, ctx.activeUserId);
+    if (!administrator) {
+      throw new Error('Administrator not found');
+    }
+
+    // Get temporary secret
+    const tempRecord = await this.connection
+      .getRepository(ctx, TotpSetupTemp)
+      .findOne({
+        where: { administratorId: Number(administrator.id) },
+        order: { createdAt: 'DESC' },
+      });
+
+    if (!tempRecord) {
+      throw new Error('TOTP setup not initialized. Please start the setup process again.');
+    }
+
+    // Check if expired
+    if (new Date() > tempRecord.expiresAt) {
+      await this.connection
+        .getRepository(ctx, TotpSetupTemp)
+        .delete({ id: tempRecord.id });
+      throw new Error('TOTP setup expired. Please start the setup process again.');
+    }
+
+    // Verify token
+    const isValid = authenticator.check(args.token, tempRecord.secret);
+    if (!isValid) {
+      throw new Error('Invalid TOTP token');
+    }
+
+    // Update administrator with secret
+    const customFields = administrator.customFields as any;
+    await this.connection
+      .getRepository(ctx, 'Administrator')
+      .update(
+        { id: administrator.id },
+        { customFields: { ...customFields, totpSecret: tempRecord.secret } },
+      );
+
+    // Delete temporary record
+    await this.connection
+      .getRepository(ctx, TotpSetupTemp)
+      .delete({ id: tempRecord.id });
+
+    return { success: true };
+  }
+
+  @Mutation()
+  @Allow(Permission.Public)
+  async verifyTotpLogin(
+    @Ctx() ctx: RequestContext,
+    @Args() args: { username: string; token: string },
+  ): Promise<{ success: boolean }> {
+    // Find administrator by username
+    const administrators = await this.administratorService.findAll(ctx, {
+      filter: { emailAddress: { eq: args.username } },
+    });
+
+    if (administrators.items.length === 0) {
+      throw new Error('Invalid credentials');
+    }
+
+    const administrator = administrators.items[0];
+    const customFields = administrator.customFields as any;
+    const totpSecret = customFields?.totpSecret;
+
+    if (!totpSecret) {
+      throw new Error('TOTP not enabled for this account');
+    }
+
+    // Verify TOTP token
+    const isValid = authenticator.check(args.token, totpSecret);
+    if (!isValid) {
+      throw new Error('Invalid TOTP token');
+    }
+
+    return { success: true };
+  }
+
+  @Mutation()
+  @Allow(Permission.Authenticated)
+  async disableTotp(
+    @Ctx() ctx: RequestContext,
+    @Args() args: { password: string },
+  ): Promise<{ success: boolean }> {
+    if (!ctx.activeUserId) {
+      throw new Error('Not authenticated');
+    }
+    
+    const administrator = await this.administratorService.findOneByUserId(ctx, ctx.activeUserId);
+    if (!administrator) {
+      throw new Error('Administrator not found');
+    }
+
+    // Verify password
+    const user = administrator.user;
+    const passwordValid = await this.passwordCipher.check(
+      args.password,
+      (user as any).passwordHash,
+    );
+    if (!passwordValid) {
+      throw new Error('Invalid password');
+    }
+
+    // Remove TOTP secret
+    const customFields = administrator.customFields as any;
+    await this.connection
+      .getRepository(ctx, 'Administrator')
+      .update(
+        { id: administrator.id },
+        { customFields: { ...customFields, totpSecret: null } },
+      );
+
+    return { success: true };
+  }
+}

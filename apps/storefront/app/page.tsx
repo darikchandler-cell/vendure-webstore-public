@@ -7,17 +7,29 @@ import { createApolloClient } from '@/lib/apollo-client';
 async function getProducts(channelCode: 'us' | 'ca') {
   const client = createApolloClient(channelCode);
   try {
-    const { data } = await client.query({
+    const { data, errors } = await client.query({
       query: GET_PRODUCTS,
       variables: {
         options: {
           take: 6,
         },
       },
+      fetchPolicy: 'no-cache', // Always fetch fresh data
     });
-    return data?.products?.items || [];
+    
+    if (errors) {
+      console.error('GraphQL errors fetching products:', errors);
+    }
+    
+    if (!data?.products?.items) {
+      console.warn('No products returned from API');
+      return [];
+    }
+    
+    return data.products.items;
   } catch (error) {
-    // Error fetching products
+    console.error('Error fetching products:', error);
+    // Return empty array but log the error for debugging
     return [];
   }
 }
@@ -26,9 +38,47 @@ export default async function HomePage() {
   const headersList = await headers();
   const channel = getChannelFromHeaders(headersList);
   const products = await getProducts(channel.code);
+  
+  // Debug logging
+  console.log(`[HomePage] Channel: ${channel.code}, Products count: ${products.length}`);
+
+  // Organization JSON-LD
+  const organizationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: channel.name,
+    url: `https://${channel.domain}`,
+    logo: `https://${channel.domain}/logo.png`, // Ensure logo exists
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: '+1-800-555-0199', // Placeholder
+      contactType: 'Customer Service',
+    },
+  };
+
+  // WebSite JSON-LD
+  const websiteJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: channel.name,
+    url: `https://${channel.domain}`,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `https://${channel.domain}/search?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  };
 
   return (
     <div className="min-h-screen">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
@@ -61,8 +111,14 @@ export default async function HomePage() {
 
         <section className="mb-16">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Featured Products</h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {products.map((product: any) => (
+          {products.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">No products available at this time.</p>
+              <p className="text-gray-400 text-sm mt-2">Please check back later or contact support.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {products.map((product: any) => (
               <Link
                 key={product.id}
                 href={`/product/${product.slug}`}
@@ -89,8 +145,9 @@ export default async function HomePage() {
                   )}
                 </div>
               </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

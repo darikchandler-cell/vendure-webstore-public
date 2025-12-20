@@ -41,12 +41,18 @@ export async function generateMetadata({
       }).format(product.variants[0].priceWithTax / 100)
     : '';
 
+  // Use custom meta fields if available, otherwise fall back to defaults
+  const metaTitle = product.metaTitle || product.name;
+  const metaDescription = product.metaDescription || product.shortDescription || product.description || `${product.name} - ${channel.name}`;
+  const keywords = product.keywords ? product.keywords.split(',').map(k => k.trim()).join(', ') : undefined;
+
   return {
-    title: product.name,
-    description: product.description || `${product.name} - ${channel.name}`,
+    title: metaTitle,
+    description: metaDescription,
+    keywords: keywords,
     openGraph: {
-      title: product.name,
-      description: product.description || '',
+      title: metaTitle,
+      description: metaDescription,
       images: product.featuredAsset
         ? [
             {
@@ -55,12 +61,15 @@ export async function generateMetadata({
             },
           ]
         : [],
-      type: 'website',
+      type: 'product',
+      ...(product.brand && {
+        siteName: product.brand.name,
+      }),
     },
     twitter: {
       card: 'summary_large_image',
-      title: product.name,
-      description: product.description || '',
+      title: metaTitle,
+      description: metaDescription,
       images: product.featuredAsset ? [product.featuredAsset.preview] : [],
     },
     alternates: {
@@ -95,21 +104,68 @@ export default async function ProductPage({ params }: { params: { slug: string }
       }).format(variant.priceWithTax / 100)
     : '';
 
-  // JSON-LD structured data
-  const jsonLd = {
+  // Enhanced JSON-LD structured data with all new fields
+  const getStockStatus = (status?: string) => {
+    if (!status) return 'https://schema.org/InStock';
+    const statusMap: Record<string, string> = {
+      'in-stock': 'https://schema.org/InStock',
+      'out-of-stock': 'https://schema.org/OutOfStock',
+      'backorder': 'https://schema.org/BackOrder',
+      'pre-order': 'https://schema.org/PreOrder',
+    };
+    return statusMap[status.toLowerCase()] || 'https://schema.org/InStock';
+  };
+
+  const jsonLd: any = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    description: product.description,
+    description: product.description || product.shortDescription,
     image: product.featuredAsset?.preview,
-    offers: variant
-      ? {
-          '@type': 'Offer',
-          price: variant.price / 100,
-          priceCurrency: variant.currencyCode,
-          availability: 'https://schema.org/InStock',
-        }
-      : undefined,
+    sku: variant?.sku,
+    ...(product.brand && {
+      brand: {
+        '@type': 'Brand',
+        name: product.brand.name,
+        ...(product.brand.websiteUrl && { url: product.brand.websiteUrl }),
+      },
+    }),
+    ...(variant && {
+      offers: {
+        '@type': 'Offer',
+        price: variant.price / 100,
+        priceCurrency: variant.currencyCode,
+        availability: getStockStatus(variant.customStockStatus),
+        ...(variant.upc && { gtin: variant.upc }),
+      },
+    }),
+    ...(variant?.weight && {
+      weight: {
+        '@type': 'QuantitativeValue',
+        value: variant.weight,
+        unitCode: 'GRM', // grams
+      },
+    }),
+    ...(variant?.length && variant?.width && variant?.height && {
+      dimensions: {
+        '@type': 'QuantitativeValue',
+        length: {
+          '@type': 'QuantitativeValue',
+          value: variant.length,
+          unitCode: 'MMT', // millimeters
+        },
+        width: {
+          '@type': 'QuantitativeValue',
+          value: variant.width,
+          unitCode: 'MMT',
+        },
+        height: {
+          '@type': 'QuantitativeValue',
+          value: variant.height,
+          unitCode: 'MMT',
+        },
+      },
+    }),
   };
 
   return (
@@ -150,7 +206,15 @@ export default async function ProductPage({ params }: { params: { slug: string }
                 )}
               </div>
               <div>
+                {product.brand && (
+                  <div className="mb-2">
+                    <span className="text-sm text-gray-600 font-medium">{product.brand.name}</span>
+                  </div>
+                )}
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.name}</h1>
+                {product.shortDescription && (
+                  <p className="text-lg text-gray-700 mb-4">{product.shortDescription}</p>
+                )}
                 {product.description && (
                   <div
                     className="text-gray-700 mb-6"
@@ -158,9 +222,26 @@ export default async function ProductPage({ params }: { params: { slug: string }
                   />
                 )}
                 {variant && (
-                  <div className="mb-6">
+                  <div className="mb-6 space-y-2">
                     <p className="text-3xl font-bold text-primary-600 mb-2">{price}</p>
-                    <p className="text-sm text-gray-500">SKU: {variant.sku}</p>
+                    <div className="text-sm text-gray-500 space-y-1">
+                      <p>SKU: {variant.sku}</p>
+                      {variant.upc && <p>UPC: {variant.upc}</p>}
+                      {variant.customStockStatus && (
+                        <p className="capitalize">Status: {variant.customStockStatus.replace('-', ' ')}</p>
+                      )}
+                      {(variant.weight || variant.length || variant.width || variant.height) && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <p className="font-medium text-gray-700 mb-1">Dimensions & Weight:</p>
+                          {variant.weight && <p>Weight: {(variant.weight / 1000).toFixed(2)} kg</p>}
+                          {variant.length && variant.width && variant.height && (
+                            <p>
+                              Dimensions: {variant.length}mm × {variant.width}mm × {variant.height}mm
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 <button className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors">

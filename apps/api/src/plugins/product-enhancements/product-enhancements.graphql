@@ -1,0 +1,139 @@
+extend type Product {
+  """
+  Short description for product listings and previews
+  """
+  shortDescription: String
+
+  """
+  Meta title for SEO
+  """
+  metaTitle: String
+
+  """
+  Meta description for SEO
+  """
+  metaDescription: String
+
+  """
+  Keywords/tags for SEO (comma-separated)
+  """
+  keywords: String
+}
+
+extend type ProductVariant {
+  """
+  Product weight in grams
+  """
+  weight: Int
+
+  """
+  Product length in millimeters
+  """
+  length: Int
+
+  """
+  Product width in millimeters
+  """
+  width: Int
+
+  """
+  Product height in millimeters
+  """
+  height: Int
+
+  """
+  Custom stock status (e.g., 'in-stock', 'out-of-stock', 'backorder', 'pre-order')
+  """
+  customStockStatus: String
+
+  """
+  Universal Product Code (UPC)
+  """
+  upc: String
+}
+
+type Brand {
+  id: ID!
+  name: String!
+  slug: String
+  description: String
+  logoAssetId: String
+  websiteUrl: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+extend type Query {
+  """
+  Get all brands
+  """
+  brands(options: BrandListOptions): BrandList!
+  
+  """
+  Get a brand by ID
+  """
+  brand(id: ID!): Brand
+  
+  """
+  Get a brand by slug
+  """
+  brandBySlug(slug: String!): Brand
+}
+
+input BrandListOptions {
+  skip: Int
+  take: Int
+  sort: BrandSortParameter
+  filter: BrandFilterParameter
+}
+
+input BrandSortParameter {
+  name: SortOrder
+  createdAt: SortOrder
+  updatedAt: SortOrder
+}
+
+input BrandFilterParameter {
+  name: StringOperators
+  slug: StringOperators
+}
+
+type BrandList {
+  items: [Brand!]!
+  totalItems: Int!
+}
+
+extend type Mutation {
+  """
+  Create a new brand
+  """
+  createBrand(input: CreateBrandInput!): Brand!
+
+  """
+  Update an existing brand
+  """
+  updateBrand(input: UpdateBrandInput!): Brand!
+
+  """
+  Delete a brand
+  """
+  deleteBrand(id: ID!): Boolean!
+}
+
+input CreateBrandInput {
+  name: String!
+  slug: String
+  description: String
+  logoAssetId: String
+  websiteUrl: String
+}
+
+input UpdateBrandInput {
+  id: ID!
+  name: String
+  slug: String
+  description: String
+  logoAssetId: String
+  websiteUrl: String
+}
+

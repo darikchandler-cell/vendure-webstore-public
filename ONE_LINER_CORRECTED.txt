@@ -1,0 +1,8 @@
+# CORRECTED ONE-LINER - Copy this ENTIRE line and paste into Hetzner Console
+# No heredoc needed - just paste and press Enter
+
+sed -i 's/#PasswordAuthentication no/PasswordAuthentication yes/; s/PasswordAuthentication no/PasswordAuthentication yes/; s/#PermitRootLogin prohibit-password/PermitRootLogin yes/; s/PermitRootLogin prohibit-password/PermitRootLogin yes/; s/#PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config && systemctl restart sshd && echo '✅ Password login enabled!'
+
+
+
+

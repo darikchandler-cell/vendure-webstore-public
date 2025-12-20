@@ -1,0 +1,25 @@
+Type these commands one at a time in Hetzner Console:
+
+COMMAND 1:
+sed -i 's/#PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+COMMAND 2:
+sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+COMMAND 3:
+sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+COMMAND 4:
+sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+COMMAND 5:
+sed -i 's/#PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+COMMAND 6:
+systemctl restart sshd
+
+Done! Password login is now enabled.
+
+
+
+

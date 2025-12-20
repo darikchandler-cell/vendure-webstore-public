@@ -1,0 +1,50 @@
+extend type Query {
+  """
+  Check if TOTP MFA is enabled for the current administrator
+  """
+  isTotpEnabled: Boolean!
+}
+
+extend type Mutation {
+  """
+  Initialize TOTP setup. Generates a secret and returns QR code URI.
+  Requires password verification for security.
+  """
+  initTotpSetup(password: String!): InitTotpSetupResult!
+
+  """
+  Enable TOTP MFA. Verifies the token from the authenticator app
+  and persists the secret to the administrator account.
+  """
+  enableTotp(token: String!): EnableTotpResult!
+
+  """
+  Verify TOTP token during login (second factor).
+  Called after initial password authentication when TOTP is required.
+  """
+  verifyTotpLogin(username: String!, token: String!): VerifyTotpLoginResult!
+
+  """
+  Disable TOTP MFA. Requires password verification.
+  """
+  disableTotp(password: String!): DisableTotpResult!
+}
+
+type InitTotpSetupResult {
+  secret: String!
+  qrCodeUri: String!
+}
+
+type EnableTotpResult {
+  success: Boolean!
+}
+
+type VerifyTotpLoginResult {
+  success: Boolean!
+}
+
+type DisableTotpResult {
+  success: Boolean!
+}
+
+
