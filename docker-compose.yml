@@ -220,6 +220,54 @@ services:
     #   - /app/node_modules
     #   - /app/.next
 
+  remix-storefront:
+    build:
+      context: ./apps/remix-storefront
+      dockerfile: Dockerfile
+      args:
+        VENDURE_API_URL: ${VENDURE_API_URL:-http://vendure-api:3000}
+        PUBLIC_VENDURE_API_URL: ${PUBLIC_VENDURE_API_URL:-https://hunterirrigationsupply.com}
+        US_CHANNEL_TOKEN: ${US_CHANNEL_TOKEN:-e8feb84eb1c9a971babd442996f62ed2}
+        CA_CHANNEL_TOKEN: ${CA_CHANNEL_TOKEN:-829a8999792172126c5af5458a47caa2}
+        SESSION_SECRET: ${SESSION_SECRET:-changeme-secret-key}
+        NODE_ENV: ${NODE_ENV:-production}
+    container_name: hunter-irrigation-remix-storefront
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 8002
+      VENDURE_API_URL: http://vendure-api:3000
+      PUBLIC_VENDURE_API_URL: ${PUBLIC_VENDURE_API_URL:-https://hunterirrigationsupply.com}
+      US_CHANNEL_TOKEN: ${US_CHANNEL_TOKEN:-e8feb84eb1c9a971babd442996f62ed2}
+      CA_CHANNEL_TOKEN: ${CA_CHANNEL_TOKEN:-829a8999792172126c5af5458a47caa2}
+      SESSION_SECRET: ${SESSION_SECRET:-changeme-secret-key}
+    depends_on:
+      vendure-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8002', (r) => {process.exit(r.statusCode < 500 ? 0 : 1)}).on('error', () => process.exit(1))\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - hunter-irrigation-network
+    ports:
+      - "127.0.0.1:8002:8002"  # Expose to localhost for Caddy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   caddy:
     image: caddy:2-alpine
     container_name: hunter-irrigation-caddy
