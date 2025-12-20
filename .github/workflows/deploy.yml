@@ -23,7 +23,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /opt/hunter-irrigation
-            git pull origin main
+            # Update code from GitHub (skip if git fails)
+            GIT_TERMINAL_PROMPT=0 git fetch origin main 2>/dev/null && GIT_TERMINAL_PROMPT=0 git reset --hard origin/main 2>/dev/null || echo "⚠️  Git update skipped, using existing code"
             chmod +x infra/execute-deployment.sh
             ./infra/execute-deployment.sh
       
