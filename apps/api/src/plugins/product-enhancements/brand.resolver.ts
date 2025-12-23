@@ -11,9 +11,10 @@ export class BrandResolver {
   @Allow(Permission.ReadCatalog, Permission.Public)
   async brands(
     @Ctx() ctx: RequestContext,
-    @Arg('options', { nullable: true }) options: any,
+    @Arg('options', () => String, { nullable: true }) options: string | null,
   ): Promise<{ items: Brand[]; totalItems: number }> {
-    return this.brandService.findAll(ctx, options);
+    const parsedOptions = options ? JSON.parse(options) : undefined;
+    return this.brandService.findAll(ctx, parsedOptions);
   }
 
   @Query(() => Brand, { nullable: true })
@@ -38,18 +39,20 @@ export class BrandResolver {
   @Allow(Permission.UpdateCatalog)
   async createBrand(
     @Ctx() ctx: RequestContext,
-    @Arg('input') input: any,
+    @Arg('input', () => String) input: string,
   ): Promise<Brand> {
-    return this.brandService.create(ctx, input);
+    const parsedInput = JSON.parse(input);
+    return this.brandService.create(ctx, parsedInput);
   }
 
   @Mutation(() => Brand)
   @Allow(Permission.UpdateCatalog)
   async updateBrand(
     @Ctx() ctx: RequestContext,
-    @Arg('input') input: any,
+    @Arg('input', () => String) input: string,
   ): Promise<Brand> {
-    return this.brandService.update(ctx, input.id, input);
+    const parsedInput = JSON.parse(input);
+    return this.brandService.update(ctx, parsedInput.id, parsedInput);
   }
 
   @Mutation(() => Boolean)

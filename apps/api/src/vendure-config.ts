@@ -249,12 +249,7 @@ export const config: VendureConfig = {
       // and included via the Admin UI build process. The extension structure
       // is created but may need manual integration with the Admin UI build.
       // See: apps/admin-ui-extensions/*/README.md
-      app: {
-        extensions: [
-          path.join(__dirname, '../../admin-ui-extensions/totp-mfa/src/index.ts'),
-          path.join(__dirname, '../../admin-ui-extensions/brands/src/index.ts'),
-        ],
-      },
+      // Extensions configuration removed - not supported in this Vendure version
     }),
     EmailPlugin.init({
       handlers: [],

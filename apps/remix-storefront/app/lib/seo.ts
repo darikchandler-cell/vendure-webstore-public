@@ -8,6 +8,7 @@ export interface ProductSchemaData {
   description?: string;
   sku?: string;
   upc?: string;
+  mpn?: string;
   brand?: string;
   price: number;
   currencyCode: string;
@@ -19,6 +20,12 @@ export interface ProductSchemaData {
     count: number;
   };
   category?: string;
+  // AEO fields
+  useCase?: string[];
+  applicationCategory?: string;
+  audience?: string;
+  compatibility?: string[];
+  manufacturerUrl?: string;
 }
 
 export interface CollectionPageSchemaData {
@@ -56,6 +63,7 @@ export interface BreadcrumbSchemaData {
 /**
  * Generate Product JSON-LD schema
  * Full Product schema with SKU, Brand, Price, Reviews, Availability
+ * Enhanced with AEO (Answer Engine Optimization) fields
  */
 export function generateProductSchema(data: ProductSchemaData): object {
   const schema: any = {
@@ -66,14 +74,17 @@ export function generateProductSchema(data: ProductSchemaData): object {
     url: data.url,
   };
 
+  // Part number identifiers (critical for part number SEO)
   if (data.sku) {
     schema.sku = data.sku;
+    schema.mpn = data.sku; // Manufacturer Part Number = SKU
   }
 
   if (data.upc) {
     schema.gtin = data.upc;
   }
 
+  // Brand information
   if (data.brand) {
     schema.brand = {
       '@type': 'Brand',
@@ -89,6 +100,40 @@ export function generateProductSchema(data: ProductSchemaData): object {
     schema.category = data.category;
   }
 
+  // AEO fields for AI search engines
+  if (data.applicationCategory) {
+    schema.applicationCategory = data.applicationCategory;
+  }
+
+  if (data.audience) {
+    schema.audience = {
+      '@type': 'Audience',
+      audienceType: data.audience,
+    };
+  }
+
+  if (data.useCase && data.useCase.length > 0) {
+    schema.useCase = data.useCase;
+  }
+
+  if (data.compatibility && data.compatibility.length > 0) {
+    schema.compatibility = {
+      '@type': 'ItemList',
+      itemListElement: data.compatibility.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item,
+      })),
+    };
+  }
+
+  if (data.manufacturerUrl) {
+    schema.manufacturer = {
+      '@type': 'Organization',
+      url: data.manufacturerUrl,
+    };
+  }
+
   // Offer schema
   schema.offers = {
     '@type': 'Offer',
@@ -96,6 +141,7 @@ export function generateProductSchema(data: ProductSchemaData): object {
     priceCurrency: data.currencyCode,
     availability: `https://schema.org/${data.availability}`,
     url: data.url,
+    itemCondition: 'https://schema.org/NewCondition',
   };
 
   // AggregateRating if available
@@ -105,6 +151,25 @@ export function generateProductSchema(data: ProductSchemaData): object {
       ratingValue: data.rating.value,
       reviewCount: data.rating.count,
     };
+  }
+
+  // Additional properties for technical specs
+  if (data.upc || data.sku) {
+    schema.additionalProperty = [];
+    if (data.sku) {
+      schema.additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: 'Part Number',
+        value: data.sku,
+      });
+    }
+    if (data.upc) {
+      schema.additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: 'UPC',
+        value: data.upc,
+      });
+    }
   }
 
   return schema;

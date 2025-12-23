@@ -16,12 +16,13 @@ import {
 } from '~/lib/seo';
 
 interface SeoHeadProps {
-  type: 'product' | 'collection' | 'organization' | 'breadcrumb';
+  type: 'product' | 'collection' | 'organization' | 'breadcrumb' | 'faq';
   data:
     | ProductSchemaData
     | CollectionPageSchemaData
     | OrganizationSchemaData
-    | BreadcrumbSchemaData;
+    | BreadcrumbSchemaData
+    | { faqs: FAQItem[] };
 }
 
 export function SeoHead({ type, data }: SeoHeadProps) {
@@ -39,6 +40,9 @@ export function SeoHead({ type, data }: SeoHeadProps) {
       break;
     case 'breadcrumb':
       schema = generateBreadcrumbSchema(data as BreadcrumbSchemaData);
+      break;
+    case 'faq':
+      schema = generateFAQSchema((data as { faqs: FAQItem[] }).faqs);
       break;
     default:
       return null;

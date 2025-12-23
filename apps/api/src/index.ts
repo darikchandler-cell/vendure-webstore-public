@@ -57,6 +57,13 @@ bootstrap(config)
         expressApp.set('trust proxy', 1);
         console.log('✅ Enabled "trust proxy" for secure cookies');
       }
+      
+      // Register import endpoint
+      if (expressApp && typeof expressApp.post === 'function') {
+        const { handleImportRequest } = require('./scripts/woocommerce-import/import-endpoint');
+        expressApp.post('/api/import', handleImportRequest);
+        console.log('✅ Registered import endpoint: POST /api/import');
+      }
     } catch (e) {
       console.log('⚠️ Could not set "trust proxy":', e);
     }

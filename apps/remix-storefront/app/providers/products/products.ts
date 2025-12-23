@@ -58,6 +58,7 @@ export const detailedProductFragment = gql`
       currencyCode
       sku
       stockLevel
+      customFields
       featuredAsset {
         id
         preview

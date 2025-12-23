@@ -1,10 +1,3 @@
-Copy this ENTIRE line to Hetzner Console and press Enter:
+COPY THIS ENTIRE COMMAND TO HETZNER CONSOLE AND RUN IT:
 
-mkdir -p ~/.ssh && echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIABbCpmJcHK5jYk70MeOcoFIEkAh1FOdlEw+Bl7Z4n9h vendure-fix-key' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && chmod 700 ~/.ssh && systemctl start vendure-storefront && systemctl enable vendure-storefront && cd /opt/hunter-irrigation && sudo -u vendure bash -c 'cd apps/api && pnpm run seed' && systemctl status vendure-storefront | head -5 && curl -I https://hunterirrigationsupply.com
-
-This will:
-1. Add SSH key (so I can SSH automatically)
-2. Start storefront (fixes 502 errors)
-3. Create superadmin (fixes login)
-4. Show status and test URL
-
+cd /opt/hunter-irrigation/apps/api && test -f /opt/hunter-irrigation/import-hunter.csv && pnpm run import-woocommerce -- --limit=5 || echo "CSV file not found - upload it first with: scp import-hunter.csv root@178.156.194.89:/opt/hunter-irrigation/"

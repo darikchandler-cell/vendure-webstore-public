@@ -24,6 +24,7 @@ import { BuyBox } from '~/components/products/BuyBox';
 import { TechnicalSpecs } from '~/components/products/TechnicalSpecs';
 import { ProductImageCarousel } from '~/components/products/ProductImageCarousel';
 import { SeoHead } from '~/components/seo/SeoHead';
+import { generateFAQSchema, generateDefaultFAQs } from '~/lib/faq-schema';
 import { ProductBadges } from '~/components/products/ProductBadges';
 import { extractBadges } from '~/utils/product-badges';
 import { trackAddToCart } from '~/utils/monitoring';
@@ -252,6 +253,15 @@ export default function ProductSlug() {
         : '',
   }));
 
+  // Extract AEO fields from customFields
+  const customFields = 'customFields' in product ? product.customFields : undefined;
+  const useCase = customFields?.useCase;
+  const applicationCategory = customFields?.applicationCategory;
+  const audience = customFields?.audience;
+  const compatibility = customFields?.compatibility;
+  const manufacturerUrl = customFields?.manufacturerUrl;
+  const upc = selectedVariant?.customFields?.upc;
+
   return (
     <article className="min-h-screen bg-gradient-to-b from-navy-darker to-grey-dark">
       <SeoHead
@@ -261,6 +271,8 @@ export default function ProductSlug() {
           description:
             product.description?.replace(/<[^>]*>/g, '') || product.name,
           sku: selectedVariant?.sku,
+          upc: upc,
+          mpn: selectedVariant?.sku, // MPN = SKU for part number SEO
           brand: brandName,
           price: selectedVariant?.priceWithTax || 0,
           currencyCode: selectedVariant?.currencyCode || 'USD',
@@ -272,11 +284,40 @@ export default function ProductSlug() {
           image: productImage,
           url: productUrl,
           category: product.collections[0]?.name,
+          // AEO fields
+          useCase: useCase,
+          applicationCategory: applicationCategory,
+          audience: audience,
+          compatibility: compatibility,
+          manufacturerUrl: manufacturerUrl,
         }}
       />
       {breadcrumbItems.length > 0 && (
         <SeoHead type="breadcrumb" data={{ items: breadcrumbItems }} />
       )}
+      {/* FAQ Schema for AI search engines */}
+      {(() => {
+        const faqs = generateDefaultFAQs({
+          name: product.name,
+          sku: selectedVariant?.sku,
+          brand: brandName,
+          description: product.description,
+          compatibility: compatibility,
+          useCase: useCase,
+        });
+        if (faqs.length > 0) {
+          const faqSchema = generateFAQSchema(faqs);
+          return (
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify(faqSchema, null, 2),
+              }}
+            />
+          );
+        }
+        return null;
+      })()}
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Breadcrumbs
