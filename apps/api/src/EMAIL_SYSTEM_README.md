@@ -271,6 +271,35 @@ const { EmailService } = require('@vendure/email-plugin');
 const emailService = app.get(EmailService);
 ```
 
+**Note:** If EmailService is not found, ensure EmailPlugin is in the plugins array and not filtered out:
+```typescript
+const seedConfig = {
+  ...config,
+  plugins: config.plugins || [], // Don't filter out EmailPlugin
+};
+```
+
+**Alternative:** If EmailService still can't be found, you can use nodemailer directly with the same SMTP credentials:
+```typescript
+import * as nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587', 10),
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+await transporter.sendMail({
+  from: `${fromName} <${fromAddress}>`,
+  to: recipient,
+  subject: 'Subject',
+  html: '<p>Content</p>',
+});
+```
+
 ### Issue: "Invalid login: 535 Authentication Credentials Invalid"
 
 **Solution:** SMTP password is incorrect. Get new password from AWS SES Console:

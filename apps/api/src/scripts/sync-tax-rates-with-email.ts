@@ -24,7 +24,7 @@ import {
 } from '@vendure/core';
 import { config } from '../vendure-config';
 import { TaxRateApiService, TaxRateApiConfig } from '../plugins/tax-rate-api/tax-rate-api.service';
-import { getFromAddressForChannel, getFromName } from '../../email-handlers';
+import { getFromAddressForChannel, getFromName } from '../email-handlers';
 
 const NOTIFICATION_EMAIL = 'orders@hollowventures.com';
 
@@ -86,6 +86,8 @@ async function syncTaxRates() {
 
   log('🔄 Starting annual tax rate sync...');
 
+  // Override port to avoid conflict with running server
+  // Keep all plugins (including EmailPlugin) - same pattern as send-vendure-test-email.ts
   const seedConfig = {
     ...config,
     apiOptions: {
@@ -93,6 +95,8 @@ async function syncTaxRates() {
       port: 3002,
     },
     logger: new DefaultLogger({ level: LogLevel.Info }),
+    // Don't filter plugins - keep EmailPlugin
+    plugins: config.plugins || [],
   };
 
   let app: any;
