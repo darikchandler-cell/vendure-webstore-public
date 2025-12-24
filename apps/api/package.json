@@ -19,6 +19,7 @@
     "setup-mfa": "ts-node -r tsconfig-paths/register src/setup-totp-mfa.ts",
     "import-woocommerce": "ts-node -r tsconfig-paths/register src/scripts/woocommerce-import/index.ts",
     "sync-tax-rates": "ts-node -r tsconfig-paths/register src/scripts/sync-tax-rates.ts",
+    "sync-tax-rates-email": "ts-node -r tsconfig-paths/register src/scripts/sync-tax-rates-with-email.ts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
   },
