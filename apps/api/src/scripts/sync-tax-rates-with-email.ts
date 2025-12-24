@@ -24,7 +24,7 @@ import {
 } from '@vendure/core';
 import { config } from '../vendure-config';
 import { TaxRateApiService, TaxRateApiConfig } from '../plugins/tax-rate-api/tax-rate-api.service';
-import { getFromAddressForChannel, getFromName } from '../email-handlers';
+import { getFromAddressForChannel, getFromName } from '../../email-handlers';
 
 const NOTIFICATION_EMAIL = 'orders@hollowventures.com';
 
