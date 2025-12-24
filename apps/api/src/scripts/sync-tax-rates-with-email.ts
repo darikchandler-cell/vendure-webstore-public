@@ -15,6 +15,7 @@ import {
   bootstrap,
   TaxRateService,
   ZoneService,
+  ChannelService,
   RequestContext,
   TransactionalConnection,
   DefaultLogger,
@@ -127,7 +128,8 @@ async function syncTaxRates() {
       connection
     );
 
-    const defaultChannel = await app.get('ChannelService').getDefaultChannel();
+    const channelService = app.get(ChannelService);
+    const defaultChannel = await channelService.getDefaultChannel();
     const ctx = new RequestContext({
       apiType: 'admin',
       channel: defaultChannel,
@@ -177,9 +179,9 @@ async function syncTaxRates() {
 
     // Get final counts
     const allRates = await taxRateService.findAll(ctx);
-    const enabledRates = allRates.items.filter(r => r.enabled);
-    const usRates = enabledRates.filter(r => r.name.includes('US'));
-    const caRates = enabledRates.filter(r => r.name.includes('CA'));
+    const enabledRates = allRates.items.filter((r: any) => r.enabled);
+    const usRates = enabledRates.filter((r: any) => r.name.includes('US'));
+    const caRates = enabledRates.filter((r: any) => r.name.includes('CA'));
 
     log('');
     log(`📊 Summary:`);

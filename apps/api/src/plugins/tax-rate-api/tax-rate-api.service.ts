@@ -4,7 +4,6 @@
  * Supports: SalesTaxAPI, Ziptax, Tax Data API
  */
 
-import { Injectable } from '@nestjs/common';
 import { RequestContext, TaxRateService, ZoneService, TransactionalConnection } from '@vendure/core';
 
 export interface TaxRateApiConfig {
@@ -24,7 +23,6 @@ export interface TaxRateResponse {
   effectiveDate?: string;
 }
 
-@Injectable()
 export class TaxRateApiService {
   private cache = new Map<string, { rate: number; expiresAt: number }>();
 
@@ -60,8 +58,8 @@ export class TaxRateApiService {
         throw new Error(`SalesTaxAPI error: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const rate = parseFloat(data.rate) * 100; // Convert to percentage
+      const data: any = await response.json();
+      const rate = parseFloat(data.rate || '0') * 100; // Convert to percentage
 
       const result: TaxRateResponse = {
         rate,
@@ -107,8 +105,8 @@ export class TaxRateApiService {
         throw new Error(`Ziptax error: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const rate = parseFloat(data.tax_rate) * 100;
+      const data: any = await response.json();
+      const rate = parseFloat(data.tax_rate || '0') * 100;
 
       const result: TaxRateResponse = {
         rate,
@@ -161,8 +159,8 @@ export class TaxRateApiService {
         throw new Error(`Tax Data API error: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const rate = parseFloat(data.rate) * 100;
+      const data: any = await response.json();
+      const rate = parseFloat(data.rate || '0') * 100;
 
       const result: TaxRateResponse = {
         rate,
@@ -245,7 +243,7 @@ export class TaxRateApiService {
         value: rate,
         enabled,
       });
-      return updated.id;
+      return String(updated.id);
     } else {
       // Create new rate
       const created = await this.taxRateService.create(ctx, {
@@ -255,7 +253,7 @@ export class TaxRateApiService {
         zoneId,
         categoryId: '1', // Default tax category
       });
-      return created.id;
+      return String(created.id);
     }
   }
 
