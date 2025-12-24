@@ -20,48 +20,35 @@ import {
   TransactionalConnection,
   DefaultLogger,
   LogLevel,
+  EventBus,
 } from '@vendure/core';
 import { config } from '../vendure-config';
 import { TaxRateApiService, TaxRateApiConfig } from '../plugins/tax-rate-api/tax-rate-api.service';
-import * as nodemailer from 'nodemailer';
+import { getFromAddressForChannel, getFromName } from '../email-handlers';
 
 const NOTIFICATION_EMAIL = 'orders@hollowventures.com';
 
 /**
- * Send email notification
+ * Send email notification using Vendure's EmailService
+ * This uses the same SMTP configuration and channel-specific logic as customer emails
  */
 async function sendEmailNotification(
+  emailService: any, // EmailService from @vendure/email-plugin
+  ctx: RequestContext,
   subject: string,
   body: string,
   isError: boolean = false
 ): Promise<void> {
-  const smtpHost = process.env.SMTP_HOST || 'email-smtp.us-west-2.amazonaws.com';
-  const smtpPort = parseInt(process.env.SMTP_PORT || '587', 10);
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-
-  if (!smtpUser || !smtpPass) {
-    console.error('⚠️  SMTP credentials not configured. Email notification skipped.');
-    console.error('   Set SMTP_USER and SMTP_PASS environment variables.');
-    return;
-  }
-
   try {
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    });
-
-    const mailOptions = {
-      from: `"Vendure Tax Rate Sync" <${smtpUser}>`,
+    // Use channel-specific from address (same logic as customer emails)
+    const fromAddress = getFromAddressForChannel(ctx);
+    const fromName = getFromName();
+    
+    await emailService.send({
+      from: `${fromName} <${fromAddress}>`,
       to: NOTIFICATION_EMAIL,
       subject: isError ? `❌ ${subject}` : `✅ ${subject}`,
-      html: `
+      body: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: ${isError ? '#d32f2f' : '#2e7d32'};">
             ${isError ? '❌ Tax Rate Sync Failed' : '✅ Tax Rate Sync Completed'}
@@ -77,12 +64,9 @@ async function sendEmailNotification(
           </p>
         </div>
       `,
-      text: body,
-    };
+    }, ctx);
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email notification sent to ${NOTIFICATION_EMAIL}`);
-    console.log(`   Message ID: ${info.messageId}`);
+    console.log(`✅ Email notification sent to ${NOTIFICATION_EMAIL} from ${fromAddress}`);
   } catch (error: any) {
     console.error('❌ Failed to send email notification:', error.message);
     // Don't throw - we still want the sync to complete even if email fails
@@ -114,12 +98,18 @@ async function syncTaxRates() {
   let app: any;
   let success = false;
   let errorMessage = '';
+  let ctx: RequestContext | null = null;
+  let emailService: any = null;
 
   try {
     app = await bootstrap(seedConfig);
     const taxRateService = app.get(TaxRateService);
     const zoneService = app.get(ZoneService);
     const connection = app.get(TransactionalConnection);
+    
+    // Get EmailService - it's provided by EmailPlugin
+    const { EmailService } = require('@vendure/email-plugin');
+    emailService = app.get(EmailService);
 
     // Create TaxRateApiService instance
     const taxApiService = new TaxRateApiService(
@@ -130,7 +120,7 @@ async function syncTaxRates() {
 
     const channelService = app.get(ChannelService);
     const defaultChannel = await channelService.getDefaultChannel();
-    const ctx = new RequestContext({
+    ctx = new RequestContext({
       apiType: 'admin',
       channel: defaultChannel,
       isAuthorized: true,
@@ -197,9 +187,11 @@ async function syncTaxRates() {
 
     success = true;
 
-    // Send success email
+    // Send success email using Vendure's EmailService
     const emailBody = logMessages.join('\n') + `\n\nDuration: ${duration} seconds\nStatus: SUCCESS`;
     await sendEmailNotification(
+      emailService,
+      ctx,
       'Tax Rate Sync Completed Successfully',
       emailBody,
       false
@@ -221,13 +213,23 @@ async function syncTaxRates() {
 
     success = false;
 
-    // Send error email
-    const emailBody = logMessages.join('\n') + `\n\nDuration: ${duration} seconds\nStatus: FAILED\nError: ${errorMessage}`;
-    await sendEmailNotification(
-      'Tax Rate Sync Failed',
-      emailBody,
-      true
-    );
+    // Send error email using Vendure's EmailService
+    if (app && ctx) {
+      try {
+        const { EmailService } = require('@vendure/email-plugin');
+        const emailService = app.get(EmailService);
+        const emailBody = logMessages.join('\n') + `\n\nDuration: ${duration} seconds\nStatus: FAILED\nError: ${errorMessage}`;
+        await sendEmailNotification(
+          emailService,
+          ctx,
+          'Tax Rate Sync Failed',
+          emailBody,
+          true
+        );
+      } catch (emailError: any) {
+        console.error('Failed to send error email:', emailError.message);
+      }
+    }
 
     if (app) {
       await app.close();
@@ -236,14 +238,41 @@ async function syncTaxRates() {
   }
 }
 
-syncTaxRates().catch(err => {
+syncTaxRates().catch(async (err) => {
   console.error('❌ Fatal error:', err);
-  sendEmailNotification(
-    'Tax Rate Sync - Fatal Error',
-    `Fatal error occurred:\n\n${err.message}\n\n${err.stack || ''}`,
-    true
-  ).finally(() => {
-    process.exit(1);
-  });
+  // Try to bootstrap just to send email, but don't fail if it doesn't work
+  try {
+    const seedConfig = {
+      ...config,
+      apiOptions: {
+        ...config.apiOptions,
+        port: 3002,
+      },
+      logger: new DefaultLogger({ level: LogLevel.Error }),
+    };
+    const app = await bootstrap(seedConfig);
+    // Get EmailService - same pattern as send-vendure-test-email.ts
+    const { EmailService } = require('@vendure/email-plugin');
+    const emailService = app.get(EmailService);
+    const channelService = app.get(ChannelService);
+    const defaultChannel = await channelService.getDefaultChannel();
+    const ctx = new RequestContext({
+      apiType: 'admin',
+      channel: defaultChannel,
+      isAuthorized: true,
+      authorizedAsOwnerOnly: false,
+    });
+    await sendEmailNotification(
+      emailService,
+      ctx,
+      'Tax Rate Sync - Fatal Error',
+      `Fatal error occurred:\n\n${err.message}\n\n${err.stack || ''}`,
+      true
+    );
+    await app.close();
+  } catch (emailError) {
+    console.error('Failed to send error email:', emailError);
+  }
+  process.exit(1);
 });
 
