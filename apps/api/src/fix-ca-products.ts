@@ -71,8 +71,10 @@ async function assignProductsToCaChannel() {
                 await channelService.assignToChannels(ctx, ProductVariant, variant.id, [caChannel.id]);
                 
                 // Set CAD price (simple 1.3x conversion for now)
+                // Round up to nearest 0.10 (tenth)
                 const usPrice = variant.price;
-                const cadPrice = Math.round(usPrice * 1.3);
+                const cadPriceRaw = usPrice * 1.3;
+                const cadPrice = Math.ceil((cadPriceRaw / 100) * 10) / 10 * 100;
                 
                 // Update price for CA channel
                 // Note: This creates a price for the specific channel

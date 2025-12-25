@@ -31,6 +31,7 @@ import { config } from '../../vendure-config';
 import { parseCSV, validateCSV, filterProducts } from './csv-parser';
 import { transformProduct } from './product-transformer';
 import { processImages, generateBrandSlug } from './utils/asset-handler';
+import { roundUpPriceToNearestTenth } from './utils/price-calculator';
 
 /**
  * Helper function to get MIME type from filename
@@ -535,7 +536,9 @@ async function importProducts(options: ImportOptions = {}) {
       }]);
 
       // Calculate CAD price (assuming 1.33 exchange rate, adjust as needed)
-      const cadPrice = Math.round(importedProduct.regularPrice * 1.33);
+      // Round up to nearest 0.10 (tenth)
+      const cadPriceRaw = importedProduct.regularPrice * 1.33;
+      const cadPrice = roundUpPriceToNearestTenth(cadPriceRaw);
 
       const caCtx = new RequestContext({
         apiType: 'admin',

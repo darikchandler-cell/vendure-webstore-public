@@ -1,13 +1,36 @@
 /**
  * Price Calculation Utilities
- * Adjusts prices by percentage and rounds to nearest cent
+ * Adjusts prices by percentage and rounds up to nearest 0.10 (tenth)
  */
 
 /**
- * Adjust price by percentage and round to nearest cent
+ * Round up to nearest 0.10 (tenth)
+ * @param priceInDollars Price in dollars
+ * @returns Price rounded up to nearest 0.10 in dollars
+ */
+function roundUpToNearestTenth(priceInDollars: number): number {
+  return Math.ceil(priceInDollars * 10) / 10;
+}
+
+/**
+ * Round up price in cents to nearest 0.10 (tenth)
+ * @param priceInCents Price in cents
+ * @returns Price rounded up to nearest 0.10 in cents
+ */
+export function roundUpPriceToNearestTenth(priceInCents: number): number {
+  if (!priceInCents || priceInCents <= 0) {
+    return 0;
+  }
+  const priceInDollars = priceInCents / 100;
+  const rounded = roundUpToNearestTenth(priceInDollars);
+  return Math.round(rounded * 100);
+}
+
+/**
+ * Adjust price by percentage and round up to nearest 0.10 (tenth)
  * @param originalPrice Original price in dollars
  * @param percentageIncrease Percentage to increase (default 5%)
- * @returns Adjusted price in cents (for Vendure)
+ * @returns Adjusted price in cents (for Vendure), rounded up to nearest 0.10
  */
 export function adjustPrice(
   originalPrice: number,
@@ -20,8 +43,8 @@ export function adjustPrice(
   // Increase by percentage
   const adjusted = originalPrice * (1 + percentageIncrease / 100);
 
-  // Round to nearest cent
-  const rounded = Math.round(adjusted * 100) / 100;
+  // Round up to nearest 0.10 (tenth)
+  const rounded = roundUpToNearestTenth(adjusted);
 
   // Convert to cents for Vendure
   return Math.round(rounded * 100);
@@ -29,6 +52,7 @@ export function adjustPrice(
 
 /**
  * Adjust price and return as dollar amount (for display)
+ * Rounds up to nearest 0.10 (tenth)
  */
 export function adjustPriceInDollars(
   originalPrice: number,
@@ -41,8 +65,8 @@ export function adjustPriceInDollars(
   // Increase by percentage
   const adjusted = originalPrice * (1 + percentageIncrease / 100);
 
-  // Round to nearest cent
-  return Math.round(adjusted * 100) / 100;
+  // Round up to nearest 0.10 (tenth)
+  return roundUpToNearestTenth(adjusted);
 }
 
 /**
