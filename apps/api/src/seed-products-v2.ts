@@ -17,6 +17,7 @@ import {
   LogLevel,
 } from '@vendure/core';
 import { config } from './vendure-config';
+import { roundUpPriceToNearestTenth } from './scripts/woocommerce-import/utils/price-calculator';
 
 /**
  * Seeds sample products with channel-specific pricing
@@ -70,7 +71,6 @@ async function seedProducts() {
           'Professional-grade rotor nozzle with pressure regulation. Perfect for residential and commercial irrigation systems.',
         sku: 'HUN-PRS40',
         usPrice: 1299, // $12.99 in cents
-        caPrice: 1699, // $16.99 CAD in cents
       },
       {
         name: 'Hunter MP Rotator 2000 Series',
@@ -79,7 +79,6 @@ async function seedProducts() {
           'Multi-stream rotator with superior water distribution. Ideal for large area coverage with uniform watering.',
         sku: 'HUN-MP2000',
         usPrice: 2499, // $24.99 in cents
-        caPrice: 3299, // $32.99 CAD in cents
       },
       {
         name: 'Hunter I-20 Rotor with Nozzle',
@@ -88,9 +87,12 @@ async function seedProducts() {
           'Professional pop-up rotor with adjustable arc and radius. Built for durability and precision watering.',
         sku: 'HUN-I20',
         usPrice: 4599, // $45.99 in cents
-        caPrice: 5999, // $59.99 CAD in cents
       },
-    ];
+    ].map(product => ({
+      ...product,
+      // Calculate CAD price as 20% higher than US price, rounded up to nearest 0.10
+      caPrice: roundUpPriceToNearestTenth(product.usPrice * 1.20),
+    }));
 
     for (const productData of products) {
       // Check if product already exists

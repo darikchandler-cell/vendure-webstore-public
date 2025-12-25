@@ -6,12 +6,6 @@
  */
 
 import 'reflect-metadata';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-
-// Load environment variables from .env file
-const envPath = path.join(__dirname, '../../../.env');
-dotenv.config({ path: envPath });
 import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
@@ -20,6 +14,7 @@ import {
   bootstrap,
   ProductService,
   AssetService,
+  ChannelService,
   RequestContext,
   DefaultLogger,
   LogLevel,
@@ -27,7 +22,7 @@ import {
   Asset,
 } from '@vendure/core';
 import { config } from '../vendure-config';
-import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
 
 const S3_BUCKET = process.env.S3_BUCKET || 'hunter-irrigation-supply';
 const S3_REGION = process.env.S3_REGION || 'us-west-2';
@@ -40,24 +35,43 @@ function getS3Url(s3Key: string): string {
 }
 
 /**
- * Download image from URL to buffer
+ * Download image from S3 using AWS SDK (bucket is private)
  */
-async function downloadImageToBuffer(imageUrl: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const protocol = imageUrl.startsWith('https') ? https : http;
-    
-    protocol.get(imageUrl, (response) => {
-      if (response.statusCode !== 200) {
-        reject(new Error(`Failed to download: ${response.statusCode}`));
-        return;
-      }
+async function downloadImageFromS3(s3Key: string): Promise<Buffer> {
+  const s3Client = new S3Client({ region: S3_REGION });
+  
+  try {
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: s3Key,
+    });
 
-      const chunks: Buffer[] = [];
-      response.on('data', (chunk) => chunks.push(chunk));
-      response.on('end', () => resolve(Buffer.concat(chunks)));
-      response.on('error', reject);
-    }).on('error', reject);
-  });
+    const response = await s3Client.send(command);
+    
+    if (!response.Body) {
+      throw new Error('No body in S3 response');
+    }
+
+    // Convert stream to buffer
+    const chunks: Buffer[] = [];
+    for await (const chunk of response.Body as any) {
+      chunks.push(Buffer.from(chunk));
+    }
+    
+    return Buffer.concat(chunks);
+  } catch (error: any) {
+    throw new Error(`Failed to download from S3: ${error.message}`);
+  }
+}
+
+/**
+ * Extract S3 key from S3 URL
+ */
+function extractS3KeyFromUrl(s3Url: string): string {
+  // URL format: https://bucket.s3.region.amazonaws.com/key
+  const url = new URL(s3Url);
+  // Remove leading slash from pathname
+  return url.pathname.substring(1);
 }
 
 /**
@@ -94,64 +108,109 @@ async function findS3Images(sku: string, brandSlug: string): Promise<string[]> {
 }
 
 /**
+ * Helper function to create Vendure asset from file
+ * Tries buffer first (which seems to work), then falls back to stream
+ * This is based on the import script but tries buffer first
+ */
+async function createAssetFromFile(
+  filepath: string,
+  assetService: AssetService,
+  ctx: RequestContext
+): Promise<string | null> {
+  if (!fs.existsSync(filepath)) {
+    console.error(`     File not found: ${filepath}`);
+    return null;
+  }
+
+  const filename = path.basename(filepath);
+  
+  // Try buffer first (some Vendure setups work better with buffer)
+  try {
+    const fileBuffer = fs.readFileSync(filepath);
+    const asset = await (assetService as any).create(ctx, {
+      file: fileBuffer,
+      tags: [],
+    });
+
+    if (asset && (asset as any).id) {
+      console.log(`  ✅ Created asset from buffer: ${filename} (ID: ${(asset as any).id})`);
+      return (asset as any).id.toString();
+    }
+  } catch (bufferError: any) {
+    // If buffer doesn't work, try with stream
+    try {
+      const fileStream = fs.createReadStream(filepath);
+      const asset = await assetService.create(ctx, {
+        file: fileStream as any,
+        tags: [],
+      });
+
+      if (asset && (asset as any).id) {
+        console.log(`  ✅ Created asset from stream: ${filename} (ID: ${(asset as any).id})`);
+        return (asset as any).id.toString();
+      }
+    } catch (streamError: any) {
+      // If both fail, log and return null
+      console.error(`     Failed to create asset from ${filepath}:`);
+      console.error(`     Buffer error: ${bufferError.message}`);
+      console.error(`     Stream error: ${streamError.message}`);
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
  * Create Vendure asset from S3 URL
+ * Downloads from S3 using AWS SDK (bucket is private) then uses createAssetFromFile
  */
 async function createAssetFromS3Url(
   s3Url: string,
   assetService: AssetService,
   ctx: RequestContext
 ): Promise<string | null> {
+  let tempFile: string | null = null;
   try {
-    // Download image from S3
-    const imageBuffer = await downloadImageToBuffer(s3Url);
+    // Extract S3 key from URL and download using AWS SDK (bucket is private)
+    const s3Key = extractS3KeyFromUrl(s3Url);
+    const imageBuffer = await downloadImageFromS3(s3Key);
     const filename = path.basename(new URL(s3Url).pathname);
 
-    // Create asset using create method
-    // Note: Vendure's AssetService.create() may require a stream
-    // We'll try with buffer first, then fallback to creating a temp file
-    try {
-      const asset = await assetService.create(ctx, {
-        file: imageBuffer,
-        tags: [],
-      });
-
-      // CreateAssetResult is a union type - check if it's an Asset
-      if (asset && 'id' in asset) {
-        return (asset as Asset).id.toString();
-      }
-    } catch (error: any) {
-      // If buffer doesn't work, create temp file and use that
-      const tempFile = path.join('/tmp', `asset-${Date.now()}-${filename}`);
-      fs.writeFileSync(tempFile, imageBuffer);
-
-      try {
-        const fileStream = fs.createReadStream(tempFile);
-        const asset = await assetService.create(ctx, {
-          file: fileStream,
-          tags: [],
-        });
-
-        // Clean up temp file
-        fs.unlinkSync(tempFile);
-
-        // CreateAssetResult is a union type - check if it's an Asset
-        if (asset && 'id' in asset) {
-          return (asset as Asset).id.toString();
-        }
-      } catch (streamError) {
-        // Clean up temp file on error
-        try {
-          fs.unlinkSync(tempFile);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-        throw streamError;
-      }
+    // Create temp file - ensure it's fully written before using
+    tempFile = path.join('/tmp', `asset-${Date.now()}-${Math.random().toString(36).substring(7)}-${filename}`);
+    fs.writeFileSync(tempFile, imageBuffer);
+    
+    // Ensure file is fully written and readable
+    if (!fs.existsSync(tempFile)) {
+      throw new Error(`Temp file was not created: ${tempFile}`);
     }
 
-    return null;
+    // Use the same createAssetFromFile function that works in the import script
+    const assetId = await createAssetFromFile(tempFile, assetService, ctx);
+
+    // Clean up temp file after asset creation
+    if (tempFile && fs.existsSync(tempFile)) {
+      // Wait a bit to ensure file is not in use
+      setTimeout(() => {
+        try {
+          fs.unlinkSync(tempFile!);
+        } catch (e) {
+          // Ignore cleanup errors - file might be in use
+        }
+      }, 500);
+    }
+
+    return assetId;
   } catch (error: any) {
-    console.error(`Error creating asset from ${s3Url}:`, error.message);
+    // Clean up temp file on error
+    if (tempFile && fs.existsSync(tempFile)) {
+      try {
+        fs.unlinkSync(tempFile);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
+    console.error(`     Error creating asset from ${s3Url}: ${error.message}`);
     return null;
   }
 }
@@ -176,7 +235,7 @@ async function linkS3ImagesToProducts() {
   const app = await bootstrap(seedConfig);
   const productService = app.get(ProductService);
   const assetService = app.get(AssetService);
-  const channelService = app.get('ChannelService');
+  const channelService = app.get(ChannelService);
   const defaultChannel = await channelService.getDefaultChannel();
   const ctx = new RequestContext({
     apiType: 'admin',
@@ -187,9 +246,10 @@ async function linkS3ImagesToProducts() {
   });
 
   try {
-    // Get all products
+    // Get all products (Vendure has a max limit, so we'll paginate)
     const products = await productService.findAll(ctx, {
-      take: 10000, // Get all products
+      take: 1000, // Max allowed by Vendure
+      skip: 0,
     });
 
     console.log(`📦 Found ${products.items.length} products`);
@@ -220,23 +280,31 @@ async function linkS3ImagesToProducts() {
         continue;
       }
 
-      // Get brand slug from custom fields
-      const brandId = (fullProduct.customFields as any)?.brandId;
-      if (!brandId) {
-        console.log(`  ⚠️  Product "${product.name}" has no brand, skipping`);
-        skipped++;
-        continue;
+      // Infer brand from product name if not in custom fields
+      let brandSlug: string | null = null;
+      const productName = fullProduct.name.toLowerCase();
+      
+      if (productName.includes('hunter') || productName.includes('hunter irrigation')) {
+        brandSlug = 'hunter-irrigation';
+      } else if (productName.includes('fx luminaire') || productName.includes('fx-luminaire')) {
+        brandSlug = 'fx-luminaire';
+      } else if (productName.includes('regency wire')) {
+        brandSlug = 'regency-wire';
+      } else if (productName.includes('paige electric')) {
+        brandSlug = 'paige-electric';
+      } else if (productName.includes('3m')) {
+        brandSlug = '3m';
       }
 
-      // Find brand slug (we'll need to query Brand entity)
-      // For now, try common brand slugs
-      const brandSlugs = ['hunter-irrigation', 'fx-luminaire'];
+      // If still no brand, try common brand slugs
+      const brandSlugs = brandSlug ? [brandSlug] : ['hunter-irrigation', 'fx-luminaire'];
       let foundImages: string[] = [];
 
-      for (const brandSlug of brandSlugs) {
-        const images = await findS3Images(variant.sku, brandSlug);
+      for (const slug of brandSlugs) {
+        const images = await findS3Images(variant.sku, slug);
         if (images.length > 0) {
           foundImages = images;
+          brandSlug = slug;
           break;
         }
       }

@@ -535,9 +535,9 @@ async function importProducts(options: ImportOptions = {}) {
         price: importedProduct.regularPrice,
       }]);
 
-      // Calculate CAD price (assuming 1.33 exchange rate, adjust as needed)
+      // Calculate CAD price (20% higher than US price)
       // Round up to nearest 0.10 (tenth)
-      const cadPriceRaw = importedProduct.regularPrice * 1.33;
+      const cadPriceRaw = importedProduct.regularPrice * 1.20;
       const cadPrice = roundUpPriceToNearestTenth(cadPriceRaw);
 
       const caCtx = new RequestContext({

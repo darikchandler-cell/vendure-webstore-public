@@ -179,7 +179,7 @@ pnpm run import-woocommerce
 
 ### Multi-Channel Support
 - ✅ Assigns products to US and CA channels
-- ✅ Sets channel-specific pricing (CAD = USD * 1.33)
+- ✅ Sets channel-specific pricing (CAD = USD * 1.20, 20% higher)
 
 ## Troubleshooting
 
