@@ -18,6 +18,7 @@
     "create-or-update-admin": "ts-node -r tsconfig-paths/register src/create-or-update-admin.ts",
     "setup-mfa": "ts-node -r tsconfig-paths/register src/setup-totp-mfa.ts",
     "import-woocommerce": "ts-node -r tsconfig-paths/register src/scripts/woocommerce-import/index.ts",
+    "link-s3-images": "ts-node -r tsconfig-paths/register src/scripts/link-s3-images-to-products.ts",
     "sync-tax-rates": "ts-node -r tsconfig-paths/register src/scripts/sync-tax-rates.ts",
     "sync-tax-rates-email": "ts-node -r tsconfig-paths/register src/scripts/sync-tax-rates-with-email.ts",
     "lint": "eslint src --ext .ts",

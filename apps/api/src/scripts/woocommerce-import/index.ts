@@ -51,6 +51,64 @@ import { ImportBrandService } from './vendors/brand-service';
 import { ImportCollectionService } from './vendors/collection-service';
 import { WooCommerceProduct, ImportedProduct } from './types';
 
+/**
+ * Helper function to create Vendure asset from file
+ * Uses file stream which is what Vendure's AssetService expects
+ */
+async function createAssetFromFile(
+  filepath: string,
+  assetService: AssetService,
+  ctx: RequestContext,
+  assetIds: string[]
+): Promise<void> {
+  try {
+    if (!fs.existsSync(filepath)) {
+      throw new Error(`File not found: ${filepath}`);
+    }
+
+    const filename = path.basename(filepath);
+    const fileStream = fs.createReadStream(filepath);
+
+    // Vendure AssetService.create() expects a stream
+    // The create method signature: create(ctx, input: CreateAssetInput)
+    // where input.file is a stream
+    const asset = await assetService.create(ctx, {
+      file: fileStream as any,
+      tags: [],
+    });
+
+    if (asset && asset.id) {
+      assetIds.push(asset.id.toString());
+      console.log(`  ✅ Created asset: ${filename} (ID: ${asset.id})`);
+    }
+  } catch (error: any) {
+    // If stream doesn't work, try with buffer
+    try {
+      const fileBuffer = fs.readFileSync(filepath);
+      const filename = path.basename(filepath);
+      
+      // Try create with buffer
+      const asset = await (assetService as any).create(ctx, {
+        file: fileBuffer,
+        tags: [],
+      });
+
+      if (asset && asset.id) {
+        assetIds.push(asset.id.toString());
+        console.log(`  ✅ Created asset from buffer: ${filename} (ID: ${asset.id})`);
+        return;
+      }
+    } catch (bufferError: any) {
+      // If both fail, log and continue
+      console.error(`  ⚠️  Failed to create asset from ${filepath}:`);
+      console.error(`     Stream error: ${error.message}`);
+      console.error(`     Buffer error: ${bufferError.message}`);
+      // Don't throw - continue with next image
+      return;
+    }
+  }
+}
+
 interface ImportOptions {
   csvPath?: string;
   dryRun?: boolean;
@@ -342,33 +400,50 @@ async function importProducts(options: ImportOptions = {}) {
         }
       }
 
-      // Handle S3 images - create Vendure assets from S3 URLs
-      // Files are already uploaded to S3, now create Vendure assets from URLs
+      // Handle S3 images - create Vendure assets from downloaded files
+      // Files are already downloaded and uploaded to S3, now create Vendure assets
       let assetIds: string[] = [];
-      if (s3ImageUrls.length > 0) {
+      if (imageFilePaths.length > 0 && s3ImageUrls.length > 0) {
         try {
-          // Create Vendure assets from S3 URLs
-          for (const s3Url of s3ImageUrls) {
+          // Create Vendure assets from downloaded files (before cleanup)
+          for (let i = 0; i < imageFilePaths.length; i++) {
+            const filepath = imageFilePaths[i];
+            const s3Url = s3ImageUrls[i];
+            
+            if (!filepath || !fs.existsSync(filepath)) {
+              console.warn(`  ⚠️  File not found: ${filepath}, downloading from S3: ${s3Url}`);
+              // Fallback: download from S3 URL
+              try {
+                const { downloadImage } = await import('./utils/asset-handler');
+                const tempFile = await downloadImage(s3Url, '/tmp');
+                if (tempFile && fs.existsSync(tempFile)) {
+                  await createAssetFromFile(tempFile, assetService, ctx, assetIds);
+                  // Clean up temp file
+                  try {
+                    fs.unlinkSync(tempFile);
+                  } catch (e) {
+                    // Ignore cleanup errors
+                  }
+                }
+              } catch (downloadError) {
+                console.error(`  ⚠️  Failed to download from S3 URL ${s3Url}:`, downloadError);
+              }
+              continue;
+            }
+
             try {
-              // Use createFromUrl if available, otherwise skip
-              const asset = await (assetService as any).createFromUrl(ctx, s3Url);
-              if (asset?.id) {
-                assetIds.push(asset.id);
-              }
+              await createAssetFromFile(filepath, assetService, ctx, assetIds);
             } catch (error: any) {
-              // If createFromUrl doesn't exist, try alternative method
-              if (error.message?.includes('createFromUrl is not a function')) {
-                console.warn(`  ⚠️  AssetService.createFromUrl not available, skipping asset creation for ${s3Url}`);
-              } else {
-                console.error(`  ⚠️  Error creating Vendure asset from ${s3Url}:`, error);
-              }
+              console.error(`  ⚠️  Error creating Vendure asset from ${filepath}:`, error.message);
             }
           }
 
-          // Clean up temp files
+          // Clean up temp files after creating assets
           for (const filepath of imageFilePaths) {
             try {
-              fs.unlinkSync(filepath);
+              if (fs.existsSync(filepath)) {
+                fs.unlinkSync(filepath);
+              }
             } catch (e) {
               // Ignore cleanup errors
             }
@@ -380,9 +455,10 @@ async function importProducts(options: ImportOptions = {}) {
               featuredAssetId: assetIds[0],
               assetIds,
             });
-            console.log(`  ✅ Created ${assetIds.length} Vendure assets from S3 URLs`);
+            console.log(`  ✅ Created ${assetIds.length} Vendure assets and linked to product`);
           } else if (s3ImageUrls.length > 0) {
-            console.log(`  ⚠️  Images uploaded to S3 but Vendure assets not created (${s3ImageUrls.length} images in S3)`);
+            console.log(`  ⚠️  Images uploaded to S3 (${s3ImageUrls.length}) but Vendure assets not created`);
+            console.log(`  💡 S3 URLs available: ${s3ImageUrls.join(', ')}`);
           }
         } catch (error) {
           console.error(`  ⚠️  Error setting assets:`, error);
