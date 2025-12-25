@@ -6,6 +6,12 @@
  */
 
 import 'reflect-metadata';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load environment variables from .env file
+const envPath = path.join(__dirname, '../../../.env');
+dotenv.config({ path: envPath });
 import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
@@ -17,6 +23,8 @@ import {
   RequestContext,
   DefaultLogger,
   LogLevel,
+  LanguageCode,
+  Asset,
 } from '@vendure/core';
 import { config } from '../vendure-config';
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
@@ -107,8 +115,9 @@ async function createAssetFromS3Url(
         tags: [],
       });
 
-      if (asset && asset.id) {
-        return asset.id.toString();
+      // CreateAssetResult is a union type - check if it's an Asset
+      if (asset && 'id' in asset) {
+        return (asset as Asset).id.toString();
       }
     } catch (error: any) {
       // If buffer doesn't work, create temp file and use that
@@ -125,8 +134,9 @@ async function createAssetFromS3Url(
         // Clean up temp file
         fs.unlinkSync(tempFile);
 
-        if (asset && asset.id) {
-          return asset.id.toString();
+        // CreateAssetResult is a union type - check if it's an Asset
+        if (asset && 'id' in asset) {
+          return (asset as Asset).id.toString();
         }
       } catch (streamError) {
         // Clean up temp file on error
@@ -166,17 +176,20 @@ async function linkS3ImagesToProducts() {
   const app = await bootstrap(seedConfig);
   const productService = app.get(ProductService);
   const assetService = app.get(AssetService);
+  const channelService = app.get('ChannelService');
+  const defaultChannel = await channelService.getDefaultChannel();
   const ctx = new RequestContext({
     apiType: 'admin',
-    channel: await app.get('ChannelService').getDefaultChannel(),
-    languageCode: 'en',
+    channel: defaultChannel,
+    languageCode: LanguageCode.en,
+    isAuthorized: true,
+    authorizedAsOwnerOnly: false,
   });
 
   try {
     // Get all products
     const products = await productService.findAll(ctx, {
       take: 10000, // Get all products
-      relations: ['assets', 'featuredAsset', 'variants'],
     });
 
     console.log(`📦 Found ${products.items.length} products`);
@@ -186,22 +199,29 @@ async function linkS3ImagesToProducts() {
     let errors = 0;
 
     for (const product of products.items) {
+      // Get full product with relations
+      const fullProduct = await productService.findOne(ctx, product.id, ['assets', 'featuredAsset', 'variants']);
+      if (!fullProduct) {
+        skipped++;
+        continue;
+      }
+
       // Skip if product already has assets
-      if (product.assets && product.assets.length > 0) {
+      if (fullProduct.assets && fullProduct.assets.length > 0) {
         skipped++;
         continue;
       }
 
       // Get SKU from first variant
-      const variant = product.variants?.[0];
+      const variant = fullProduct.variants?.[0];
       if (!variant || !variant.sku) {
-        console.log(`  ⚠️  Product "${product.name}" has no SKU, skipping`);
+        console.log(`  ⚠️  Product "${fullProduct.name}" has no SKU, skipping`);
         skipped++;
         continue;
       }
 
       // Get brand slug from custom fields
-      const brandId = (product.customFields as any)?.brandId;
+      const brandId = (fullProduct.customFields as any)?.brandId;
       if (!brandId) {
         console.log(`  ⚠️  Product "${product.name}" has no brand, skipping`);
         skipped++;
@@ -222,12 +242,12 @@ async function linkS3ImagesToProducts() {
       }
 
       if (foundImages.length === 0) {
-        console.log(`  ⚠️  No S3 images found for "${product.name}" (SKU: ${variant.sku})`);
+        console.log(`  ⚠️  No S3 images found for "${fullProduct.name}" (SKU: ${variant.sku})`);
         skipped++;
         continue;
       }
 
-      console.log(`  📸 Found ${foundImages.length} images for "${product.name}"`);
+      console.log(`  📸 Found ${foundImages.length} images for "${fullProduct.name}"`);
 
       // Create assets from S3 URLs
       const assetIds: string[] = [];
@@ -242,14 +262,14 @@ async function linkS3ImagesToProducts() {
       if (assetIds.length > 0) {
         // Update product with assets
         await productService.update(ctx, {
-          id: product.id,
+          id: fullProduct.id,
           featuredAssetId: assetIds[0],
           assetIds,
         });
-        console.log(`  ✅ Linked ${assetIds.length} assets to "${product.name}"`);
+        console.log(`  ✅ Linked ${assetIds.length} assets to "${fullProduct.name}"`);
         linked++;
       } else {
-        console.log(`  ⚠️  Failed to create assets for "${product.name}"`);
+        console.log(`  ⚠️  Failed to create assets for "${fullProduct.name}"`);
         errors++;
       }
     }
