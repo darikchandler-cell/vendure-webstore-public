@@ -42,7 +42,58 @@ export async function initErrorMonitoring() {
   }
 }
 
+/**
+ * Report error to backend API for email and GitHub issue creation
+ */
+async function reportErrorToBackend(error: Error, context?: Record<string, any>) {
+  const isDevelopment = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+  if (isDevelopment && process.env.ENABLE_ERROR_REPORTING !== 'true') {
+    return; // Skip in development unless enabled
+  }
+
+  try {
+    // Get API URL - use environment variable or default
+    const apiUrl = typeof process !== 'undefined' 
+      ? process.env.API_URL || process.env.VENDURE_API_URL || 'http://localhost:3000'
+      : typeof window !== 'undefined' && (window as any).__API_URL__
+        ? (window as any).__API_URL__
+        : 'http://localhost:3000';
+    
+    const reportData = {
+      error: {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+      },
+      context: {
+        source: 'remix-storefront',
+        url: typeof window !== 'undefined' ? window.location.href : undefined,
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+        ...context,
+      },
+      timestamp: new Date().toISOString(),
+      environment: typeof process !== 'undefined' ? process.env.NODE_ENV || 'development' : 'browser',
+    };
+
+    await fetch(`${apiUrl}/api/report-error`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(reportData),
+    });
+  } catch (err) {
+    // Silently fail - don't break error handling
+    console.error('Failed to report error to backend:', err);
+  }
+}
+
 export function captureException(error: Error, context?: Record<string, any>) {
+  // Report to backend for email and GitHub issue creation
+  reportErrorToBackend(error, context).catch(() => {
+    // Silently fail
+  });
+
   if (sentryInitialized) {
     import('@sentry/remix').then((Sentry) => {
       Sentry.captureException(error, {

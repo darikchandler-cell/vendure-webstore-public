@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { reportErrorAsync } from '../lib/error-reporter';
+
 export default function GlobalError({
   error,
   reset,
@@ -7,6 +10,15 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    // Report critical global error
+    reportErrorAsync(error, {
+      source: 'storefront',
+      component: 'GlobalError',
+      digest: error.digest,
+      severity: 'critical',
+    });
+  }, [error]);
   return (
     <html lang="en">
       <body>

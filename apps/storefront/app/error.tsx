@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { reportErrorAsync } from '../lib/error-reporter';
 
 export default function Error({
   error,
@@ -12,6 +13,13 @@ export default function Error({
   useEffect(() => {
     // Log error to console for debugging
     console.error('Application error:', error);
+    
+    // Report error automatically
+    reportErrorAsync(error, {
+      source: 'storefront',
+      component: 'ErrorBoundary',
+      digest: error.digest,
+    });
   }, [error]);
 
   return (

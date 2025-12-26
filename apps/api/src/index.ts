@@ -33,15 +33,26 @@ const shutdown = async (signal: string) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// Import error reporter
+import { reportErrorAsync } from './utils/error-reporter';
+
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
+  // Report error before shutdown
+  reportErrorAsync(err, { source: 'api', type: 'uncaughtException' });
   shutdown('uncaughtException');
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Convert rejection reason to Error if needed
+  const error = reason instanceof Error 
+    ? reason 
+    : new Error(`Unhandled Rejection: ${String(reason)}`);
+  // Report error before shutdown
+  reportErrorAsync(error, { source: 'api', type: 'unhandledRejection', promise: String(promise) });
   shutdown('unhandledRejection');
 });
 
@@ -63,6 +74,15 @@ bootstrap(config)
         const { handleImportRequest } = require('./scripts/woocommerce-import/import-endpoint');
         expressApp.post('/api/import', handleImportRequest);
         console.log('✅ Registered import endpoint: POST /api/import');
+      }
+      
+      // Register error reporting endpoint
+      if (expressApp && typeof expressApp.post === 'function') {
+        const express = require('express');
+        const { handleErrorReportRequest } = require('./api/error-report-endpoint');
+        // Add JSON body parser middleware for this route
+        expressApp.post('/api/report-error', express.json(), handleErrorReportRequest);
+        console.log('✅ Registered error reporting endpoint: POST /api/report-error');
       }
     } catch (e) {
       console.log('⚠️ Could not set "trust proxy":', e);
@@ -86,6 +106,13 @@ bootstrap(config)
   .catch((err) => {
     console.error('❌ Error starting Vendure server:', err);
     console.error('Stack trace:', err.stack);
+    
+    // Report startup error
+    reportErrorAsync(err, { 
+      source: 'api', 
+      type: 'bootstrap-error',
+      message: 'Failed to start Vendure server'
+    });
     
     // Provide helpful error messages for common issues
     if (err.message?.includes('ECONNREFUSED') || err.message?.includes('connect')) {

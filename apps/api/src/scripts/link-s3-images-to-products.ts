@@ -360,35 +360,30 @@ async function linkS3ImagesToProducts() {
 
       if (assetIds.length > 0) {
         try {
-          // Update product_assets join table directly via SQL
+          // Use raw SQL to update product and link assets
           // This bypasses Vendure's AssetService which has issues with directly-created assets
-          const productRepo = connection.getRepository(ctx, 'Product');
-          const product = await productRepo.findOne({ where: { id: fullProduct.id } });
+          const rawConnection = connection.rawConnection;
           
-          if (product) {
-            // Update product's featuredAssetId directly
-            await connection.getRepository(ctx, 'Product').update(
-              { id: fullProduct.id },
-              { featuredAssetId: assetIds[0] }
+          // Update product's featuredAssetId using raw SQL
+          await rawConnection.query(
+            `UPDATE product SET "featuredAssetId" = $1 WHERE id = $2`,
+            [assetIds[0], fullProduct.id]
+          );
+          
+          // Link assets via product_asset join table
+          // Columns are camelCase: productId, assetId, and position
+          for (let i = 0; i < assetIds.length; i++) {
+            const assetId = assetIds[i];
+            await rawConnection.query(
+              `INSERT INTO product_asset ("productId", "assetId", position) 
+               VALUES ($1, $2, $3) 
+               ON CONFLICT DO NOTHING`,
+              [fullProduct.id, assetId, i]
             );
-            
-            // Link assets via product_assets join table using raw query
-            const rawConnection = connection.rawConnection;
-            for (const assetId of assetIds) {
-              await rawConnection.query(
-                `INSERT INTO product_assets (product_id, asset_id) 
-                 VALUES ($1, $2) 
-                 ON CONFLICT (product_id, asset_id) DO NOTHING`,
-                [fullProduct.id, assetId]
-              );
-            }
-            
-            console.log(`  ✅ Linked ${assetIds.length} assets to "${fullProduct.name}"`);
-            linked++;
-          } else {
-            console.log(`  ⚠️  Product not found for "${fullProduct.name}"`);
-            errors++;
           }
+          
+          console.log(`  ✅ Linked ${assetIds.length} assets to "${fullProduct.name}"`);
+          linked++;
         } catch (updateError: any) {
           console.error(`  ⚠️  Failed to link assets to "${fullProduct.name}": ${updateError.message}`);
           errors++;
