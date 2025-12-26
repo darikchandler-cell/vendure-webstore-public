@@ -1,24 +1,35 @@
 # Quick Start: Error Reporting Setup
 
-## 🚀 Quick Setup (5 minutes)
+## ✅ Configuration Complete!
 
-### 1. Get GitHub Token
-1. Go to: https://github.com/settings/tokens
-2. Click "Generate new token (classic)"
-3. Name: `Error Reporting`
-4. Select scope: `repo` (Full control of private repositories)
-5. Click "Generate token"
-6. **Copy the token immediately** (you won't see it again)
+The error reporting system has been automatically configured with your GitHub token.
 
-### 2. Add Environment Variables
+### What's Configured
 
-#### API (`apps/api/.env`)
+✅ **API Error Reporting** (`apps/api/.env`)
+- ERROR_REPORT_EMAIL=darikchandler@gmail.com
+- GITHUB_TOKEN=configured
+- GITHUB_OWNER=darikchandler-cell
+- GITHUB_REPO=vendure-hunterirrigation
+
+### Next Steps
+
+1. **Restart your API server** for changes to take effect:
+   ```bash
+   cd apps/api
+   pnpm dev
+   ```
+
+2. **Test the system** (optional):
+   - Set `ENABLE_ERROR_REPORTING=true` in `apps/api/.env` to test in development
+   - Trigger an error or visit a broken page
+   - Check your email and GitHub issues
+
+### Manual Setup (if needed)
+
+If you need to reconfigure, run:
 ```bash
-# Add these lines:
-ERROR_REPORT_EMAIL=darikchandler@gmail.com
-GITHUB_TOKEN=paste_your_token_here
-GITHUB_OWNER=darikchandler-cell
-GITHUB_REPO=vendure-hunterirrigation
+bash apps/api/setup-error-reporting.sh
 ```
 
 #### Storefront (`apps/storefront/.env.local`)

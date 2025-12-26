@@ -301,10 +301,13 @@ async function linkS3ImagesToProducts() {
         continue;
       }
 
-      // Skip if product already has assets
-      if (fullProduct.assets && fullProduct.assets.length > 0) {
-        skipped++;
-        continue;
+      // Check if product already has assets - but we still need to link to variants!
+      const productHasAssets = fullProduct.assets && fullProduct.assets.length > 0;
+      
+      // If product has assets, get them for linking to variants
+      let existingAssetIds: string[] = [];
+      if (productHasAssets && fullProduct.assets) {
+        existingAssetIds = fullProduct.assets.map(a => a.id.toString());
       }
 
       // Get SKU from first variant
@@ -353,9 +356,18 @@ async function linkS3ImagesToProducts() {
       console.log(`  📸 Found ${foundImages.length} images for "${fullProduct.name}"`);
 
       // Create assets from S3 URLs - try AssetService, fallback to direct DB
-      const assetIds: string[] = [];
-      for (const s3Url of foundImages) {
-        await createAssetFromS3Url(s3Url, assetService, connection, ctx, assetIds);
+      // OR use existing assets if product already has them
+      let assetIds: string[] = [];
+      
+      if (productHasAssets && existingAssetIds.length > 0) {
+        // Product already has assets, use them
+        assetIds = existingAssetIds;
+        console.log(`  ℹ️  Using existing ${assetIds.length} assets for "${fullProduct.name}"`);
+      } else {
+        // Create new assets
+        for (const s3Url of foundImages) {
+          await createAssetFromS3Url(s3Url, assetService, connection, ctx, assetIds);
+        }
       }
 
       if (assetIds.length > 0) {
@@ -364,25 +376,52 @@ async function linkS3ImagesToProducts() {
           // This bypasses Vendure's AssetService which has issues with directly-created assets
           const rawConnection = connection.rawConnection;
           
-          // Update product's featuredAssetId using raw SQL
-          await rawConnection.query(
-            `UPDATE product SET "featuredAssetId" = $1 WHERE id = $2`,
-            [assetIds[0], fullProduct.id]
-          );
-          
-          // Link assets via product_asset join table
-          // Columns are camelCase: productId, assetId, and position
-          for (let i = 0; i < assetIds.length; i++) {
-            const assetId = assetIds[i];
+          // Update product's featuredAssetId using raw SQL (only if not already set)
+          if (!productHasAssets) {
             await rawConnection.query(
-              `INSERT INTO product_asset ("productId", "assetId", position) 
-               VALUES ($1, $2, $3) 
-               ON CONFLICT DO NOTHING`,
-              [fullProduct.id, assetId, i]
+              `UPDATE product SET "featuredAssetId" = $1 WHERE id = $2`,
+              [assetIds[0], fullProduct.id]
             );
+            
+            // Link assets via product_asset join table
+            // Columns are camelCase: productId, assetId, and position
+            for (let i = 0; i < assetIds.length; i++) {
+              const assetId = assetIds[i];
+              await rawConnection.query(
+                `INSERT INTO product_asset ("productId", "assetId", position) 
+                 VALUES ($1, $2, $3) 
+                 ON CONFLICT DO NOTHING`,
+                [fullProduct.id, assetId, i]
+              );
+            }
           }
           
-          console.log(`  ✅ Linked ${assetIds.length} assets to "${fullProduct.name}"`);
+          // ALSO link assets to variants - storefront checks variant.featuredAsset first!
+          // Link assets to all variants of this product via product_variant_asset join table
+          for (const variant of fullProduct.variants || []) {
+            // Update variant's featuredAssetId if it exists
+            try {
+              await rawConnection.query(
+                `UPDATE product_variant SET "featuredAssetId" = $1 WHERE id = $2`,
+                [assetIds[0], variant.id]
+              );
+            } catch (e) {
+              // featuredAssetId column might not exist on variants, that's OK
+            }
+            
+            // Link assets via product_variant_asset join table
+            for (let i = 0; i < assetIds.length; i++) {
+              const assetId = assetIds[i];
+              await rawConnection.query(
+                `INSERT INTO product_variant_asset ("productVariantId", "assetId", position) 
+                 VALUES ($1, $2, $3) 
+                 ON CONFLICT DO NOTHING`,
+                [variant.id, assetId, i]
+              );
+            }
+          }
+          
+          console.log(`  ✅ Linked ${assetIds.length} assets to "${fullProduct.name}" and ${fullProduct.variants?.length || 0} variant(s)`);
           linked++;
         } catch (updateError: any) {
           console.error(`  ⚠️  Failed to link assets to "${fullProduct.name}": ${updateError.message}`);
