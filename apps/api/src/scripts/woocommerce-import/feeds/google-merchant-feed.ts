@@ -3,7 +3,7 @@
  * Creates XML feed for Google Shopping / Google Merchant Center
  */
 
-import { Product, ProductVariant, Collection, Brand } from '@vendure/core';
+import { Product, ProductVariant, Collection } from '@vendure/core';
 
 export interface GoogleMerchantProduct {
   id: string; // SKU
@@ -37,28 +37,27 @@ export function mapProductToGoogleMerchant(
 ): GoogleMerchantProduct {
   const currency = channel === 'us' ? 'USD' : 'CAD';
   const price = (variant.priceWithTax / 100).toFixed(2);
-  const stockLevel = variant.stockLevel || 'OUT_OF_STOCK';
+  // Check stock levels - ProductVariant has stockLevels array
+  const hasStock = variant.stockLevels && variant.stockLevels.length > 0 
+    ? variant.stockLevels.some(sl => sl.stockOnHand > 0)
+    : false;
   
-  const availability = 
-    stockLevel === 'IN_STOCK' ? 'in stock' :
-    stockLevel === 'OUT_OF_STOCK' ? 'out of stock' :
-    'preorder';
+  const availability = hasStock ? 'in stock' : 'out of stock';
 
   // Get brand from customFields or facetValues
   const brandName = (product.customFields as any)?.brandId 
     ? 'Brand' // Would need to fetch brand name
     : product.facetValues?.find(fv => fv.facet.code === 'brand')?.name || '';
 
-  // Get category hierarchy
-  const categoryPath = product.collections
-    ?.map(c => c.name)
-    .join(' > ') || '';
+  // Get category hierarchy - need to fetch collections separately
+  // For now, use empty string or get from customFields
+  const categoryPath = (product.customFields as any)?.categoryPath || '';
 
   // Map to Google product category
   const googleCategory = mapToGoogleCategory(categoryPath);
 
   return {
-    id: variant.sku || variant.id,
+    id: variant.sku || variant.id.toString(),
     title: product.name,
     description: (product.description || product.name)
       .replace(/<[^>]*>/g, '')

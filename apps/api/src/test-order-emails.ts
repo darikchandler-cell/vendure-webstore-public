@@ -58,9 +58,19 @@ async function testOrderEmails() {
     console.log('✅ Vendure bootstrapped successfully');
     console.log('');
 
+    // Get default channel for RequestContext
+    const defaultChannel = await channelService.getDefaultChannel();
+    const ctx = new RequestContext({
+      apiType: 'admin',
+      channel: defaultChannel,
+      languageCode: LanguageCode.en,
+      isAuthorized: true,
+      authorizedAsOwnerOnly: false,
+    });
+
     // Get channels
     console.log('📡 Getting channels...');
-    const channels = await channelService.findAll();
+    const channels = await channelService.findAll(ctx);
     const usChannel = channels.items.find(c => 
       c.code?.toLowerCase() === 'us' || 
       c.code?.toLowerCase() === 'us-channel' ||

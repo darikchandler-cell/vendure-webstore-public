@@ -17,7 +17,7 @@ import {
   DefaultLogger,
   LogLevel,
 } from '@vendure/core';
-import { config } from '../../vendure-config';
+import { config } from '../vendure-config';
 
 async function setupTaxZones() {
   const seedConfig = {
