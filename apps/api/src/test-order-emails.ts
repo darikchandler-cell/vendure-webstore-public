@@ -361,7 +361,8 @@ async function testOrderEmails() {
       try {
         // Manually publish OrderPlacedEvent to trigger emails
         if (order) {
-          await eventBus.publish(new OrderPlacedEvent(ctx, order));
+          // OrderPlacedEvent constructor: (ctx, order, orderItems, orderLine?)
+          await eventBus.publish(new (OrderPlacedEvent as any)(ctx, order, order.lines, order.lines[0] || undefined));
           console.log('✅ OrderPlacedEvent published manually');
           console.log('📧 Emails should now be sent');
         }
