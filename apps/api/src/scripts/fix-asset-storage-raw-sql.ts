@@ -159,9 +159,10 @@ async function fixAssetStorageRawSQL() {
         fsRequire.writeFileSync(targetPath, imageBuffer);
 
         // Update asset with local filename using raw SQL
+        // Source should be just the filename, preview should be /assets/{filename}
         await rawConnection.query(
           `UPDATE asset SET source = $1, preview = $2 WHERE id = $3`,
-          [uniqueFilename, uniqueFilename, assetId]
+          [uniqueFilename, `/assets/${uniqueFilename}`, assetId]
         );
 
         console.log(`  ✅ Fixed asset: ${assetName} -> ${uniqueFilename}`);

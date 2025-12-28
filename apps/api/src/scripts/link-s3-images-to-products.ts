@@ -162,7 +162,8 @@ async function createAssetDirectly(
 
     // Store relative path for Vendure AssetServerPlugin
     // The plugin serves assets from /assets/{filename}
-    const assetSource = uniqueFilename; // Just the filename, AssetServerPlugin handles the path
+    const assetSource = uniqueFilename; // Just the filename for source
+    const assetPreview = `/assets/${uniqueFilename}`; // Full path for preview URL
 
     // Create asset record directly in database
     const assetRepo = connection.getRepository(ctx, Asset);
@@ -174,7 +175,7 @@ async function createAssetDirectly(
       width: 0, // Will be updated if image processing works
       height: 0,
       source: assetSource, // Store filename for AssetServerPlugin
-      preview: assetSource, // Store filename for AssetServerPlugin
+      preview: assetPreview, // Store full path /assets/{filename} for preview URL
     });
 
     const savedAsset = await assetRepo.save(asset);

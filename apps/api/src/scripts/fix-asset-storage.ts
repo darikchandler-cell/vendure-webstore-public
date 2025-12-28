@@ -181,11 +181,12 @@ async function fixAssetStorage() {
           fsRequire.writeFileSync(targetPath, imageBuffer);
 
           // Update asset with local filename
+          // Source should be just the filename, preview should be /assets/{filename}
           await assetRepo.update(
             { id: (asset as any).id },
             {
               source: uniqueFilename,
-              preview: uniqueFilename,
+              preview: `/assets/${uniqueFilename}`,
             }
           );
 
