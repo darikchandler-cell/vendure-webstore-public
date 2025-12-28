@@ -40,3 +40,4 @@ pnpm run fix-variant-images
 - `product_variant.featuredAssetId` - Direct reference to asset
 - `product_variant_asset` - Join table linking variants to assets
 
+

@@ -4,8 +4,6 @@
  */
 
 import 'reflect-metadata';
-import * as path from 'path';
-import * as dotenv from 'dotenv';
 import {
   bootstrap,
   RequestContext,
@@ -16,10 +14,7 @@ import {
   DefaultLogger,
   LogLevel,
 } from '@vendure/core';
-import { config } from '../../vendure-config';
-
-const envPath = path.resolve(process.cwd(), '.env');
-dotenv.config({ path: envPath });
+import { config } from '../vendure-config';
 
 async function fixVariantImages() {
   console.log('🔧 Fixing variant images...\n');
@@ -31,7 +26,7 @@ async function fixVariantImages() {
       port: 3010,
     },
     logger: new DefaultLogger({ level: LogLevel.Info }),
-    plugins: config.plugins?.filter(p => 
+    plugins: config.plugins?.filter((p: any) => 
       !p.constructor.name.includes('AdminUiPlugin') && 
       !p.constructor.name.includes('AssetServerPlugin')
     ) || [],
@@ -76,7 +71,6 @@ async function fixVariantImages() {
     
     const products = await productService.findAll(ctx, {
       take: 10000,
-      relations: ['variants', 'featuredAsset'],
     });
 
     console.log(`  Found ${products.items.length} products\n`);
@@ -187,4 +181,5 @@ async function fixVariantImages() {
 }
 
 fixVariantImages();
+
 

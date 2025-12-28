@@ -37,3 +37,4 @@ The assets are correctly stored. The issue might be:
   - `apps/api/src/scripts/fix-asset-storage.ts` - Fix HTTP URLs
   - `apps/api/src/scripts/fix-asset-storage-raw-sql.ts` - Fix using raw SQL
 
+

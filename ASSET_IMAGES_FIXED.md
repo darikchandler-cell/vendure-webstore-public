@@ -55,3 +55,4 @@ All asset images are now correctly configured and should display in the Vendure 
 - `apps/api/src/scripts/fix-asset-preview-urls.ts` - Created to fix all existing assets
 - `apps/api/src/scripts/verify-asset-urls.ts` - Created to verify asset configuration
 
+

@@ -40,3 +40,4 @@ The storefront code in `products.$slug.tsx`:
 ✅ **FIXED** - All variants now have images linked and should display correctly in the storefront.
 
 
+

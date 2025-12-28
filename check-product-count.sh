@@ -73,3 +73,4 @@ echo "   Navigate to: Catalog → Products"
 echo ""
 
 
+

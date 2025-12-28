@@ -104,3 +104,4 @@ ssh root@178.156.194.89 'cd /opt/hunter-irrigation && git pull origin main && ./
 ```
 
 
+

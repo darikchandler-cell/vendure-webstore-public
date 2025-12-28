@@ -44,3 +44,4 @@ This error occurs when trying to create Vendure assets from downloaded S3 images
 - `apps/api/package.json` - Added `link-s3-images` script
 
 
+
