@@ -19,6 +19,7 @@
     "setup-mfa": "ts-node -r tsconfig-paths/register src/setup-totp-mfa.ts",
     "import-woocommerce": "ts-node -r tsconfig-paths/register src/scripts/woocommerce-import/index.ts",
     "link-s3-images": "ts-node -r tsconfig-paths/register src/scripts/link-s3-images-to-products.ts",
+    "fix-variant-images": "ts-node -r tsconfig-paths/register src/scripts/fix-variant-images.ts",
     "fix-asset-storage": "ts-node -r tsconfig-paths/register src/scripts/fix-asset-storage.ts",
     "check-asset-storage": "ts-node -r tsconfig-paths/register src/scripts/check-asset-storage.ts",
     "fix-asset-storage-raw": "ts-node -r tsconfig-paths/register src/scripts/fix-asset-storage-raw-sql.ts",
