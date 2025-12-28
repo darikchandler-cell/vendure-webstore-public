@@ -167,10 +167,21 @@ async function importViaAPI(options: ImportOptions = {}) {
   }
 
   // Validate and filter
-  const { valid: rawValidProducts, invalid: rawInvalidProducts } = validateCSV(wcProducts);
-  console.log(`ℹ️  ${rawValidProducts.length} valid products, ${rawInvalidProducts.length} invalid products`);
+  const validationResult = validateCSV(wcProducts);
+  if (!validationResult.valid) {
+    console.error('❌ CSV validation failed:', validationResult.errors);
+    process.exit(1);
+  }
+  
+  const rawValidProducts = wcProducts.filter(p => {
+    // Filter out products without prices (they'll be skipped during import)
+    const price = p['Regular price'] || p.Price || p['Sale price'];
+    return price && parseFloat(price) > 0;
+  });
+  
+  console.log(`ℹ️  ${rawValidProducts.length} valid products with prices, ${wcProducts.length - rawValidProducts.length} products without prices (will be skipped)`);
 
-  const validProducts = filterProducts(rawValidProducts, limit);
+  const validProducts = filterProducts(rawValidProducts, { publishedOnly: true }).slice(0, limit || undefined);
   console.log(`📦 Processing ${validProducts.length} products\n`);
 
   // Process products

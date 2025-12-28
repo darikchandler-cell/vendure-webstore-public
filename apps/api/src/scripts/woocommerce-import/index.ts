@@ -78,9 +78,12 @@ async function createAssetFromFile(
       tags: [],
     });
 
-    if (asset && asset.id) {
+    // Handle CreateAssetResult which can be an asset or error
+    if (asset && 'id' in asset) {
       assetIds.push(asset.id.toString());
       console.log(`  ✅ Created asset: ${filename} (ID: ${asset.id})`);
+    } else if (asset && 'errorCode' in asset) {
+      throw new Error(`Failed to create asset: ${(asset as any).errorCode}`);
     }
   } catch (error: any) {
     // If stream doesn't work, try with buffer
@@ -349,7 +352,7 @@ async function importProducts(options: ImportOptions = {}) {
             metaDescription: englishTranslation.metaDescription,
             keywords: importedProduct.tags.join(', '),
             // AEO fields for AI search engines
-            useCase: importedProduct.useCase,
+            useCases: importedProduct.useCases,
             applicationCategory: importedProduct.applicationCategory,
             audience: importedProduct.audience,
             compatibility: importedProduct.compatibility,
@@ -382,7 +385,7 @@ async function importProducts(options: ImportOptions = {}) {
             metaDescription: englishTranslation.metaDescription,
             keywords: importedProduct.tags.join(', '),
             // AEO fields for AI search engines
-            useCase: importedProduct.useCase,
+            useCases: importedProduct.useCases,
             applicationCategory: importedProduct.applicationCategory,
             audience: importedProduct.audience,
             compatibility: importedProduct.compatibility,

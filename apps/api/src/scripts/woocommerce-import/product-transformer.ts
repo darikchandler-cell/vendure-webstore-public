@@ -43,8 +43,8 @@ export function transformProduct(
 
   // Calculate prices
   const prices = calculatePrices(
-    wcProduct['Regular price'],
-    wcProduct['Sale price']
+    wcProduct['Regular price'] || wcProduct.Price || '',
+    wcProduct['Sale price'] || ''
   );
 
   // Parse categories
@@ -98,7 +98,7 @@ export function transformProduct(
     height: height > 0 ? Math.round(height) : undefined,
     stock: wcProduct.Stock ? parseInt(wcProduct.Stock, 10) : undefined,
     inStock: wcProduct['In stock?'] === '1',
-    useCase: useCases.length > 0 ? useCases : undefined,
+    useCases: useCases.length > 0 ? useCases : undefined,
     applicationCategory,
     audience,
     compatibility: compatibility.length > 0 ? compatibility : undefined,
