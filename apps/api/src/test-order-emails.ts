@@ -60,7 +60,7 @@ async function testOrderEmails() {
 
     // Get default channel for RequestContext
     const defaultChannel = await channelService.getDefaultChannel();
-    const ctx = new RequestContext({
+    let adminCtx = new RequestContext({
       apiType: 'admin',
       channel: defaultChannel,
       languageCode: LanguageCode.en,
@@ -70,7 +70,7 @@ async function testOrderEmails() {
 
     // Get channels
     console.log('📡 Getting channels...');
-    const channels = await channelService.findAll(ctx);
+    const channels = await channelService.findAll(adminCtx);
     const usChannel = channels.items.find(c => 
       c.code?.toLowerCase() === 'us' || 
       c.code?.toLowerCase() === 'us-channel' ||
@@ -97,9 +97,10 @@ async function testOrderEmails() {
 
     // Use US channel for test order
     const channel = usChannel;
-    const ctx = new RequestContext({
+    let ctx = new RequestContext({
       apiType: 'shop',
       channel: channel,
+      languageCode: LanguageCode.en,
       isAuthorized: false,
       authorizedAsOwnerOnly: false,
     });
@@ -279,13 +280,14 @@ async function testOrderEmails() {
     let paymentId: string | undefined;
     try {
       if (!order) throw new Error('Order is undefined');
-      const paymentResult = await paymentService.createPayment(ctx, order.id, {
+      // Use OrderService.addPaymentToOrder instead of PaymentService.createPayment
+      const paymentResult = await orderService.addPaymentToOrder(ctx, order.id, {
         method: 'standard-payment',
         metadata: {
           test: true,
           testOrder: true,
         },
-      } as any);
+      });
       if ('id' in paymentResult) {
         paymentId = paymentResult.id.toString();
         console.log(`✅ Payment created: ${paymentId}`);
