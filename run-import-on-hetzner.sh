@@ -28,3 +28,4 @@ echo "To import all products, run:"
 echo "  cd /opt/hunter-irrigation/apps/api"
 echo "  pnpm run import-woocommerce"
 
+

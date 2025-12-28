@@ -80,8 +80,9 @@ bootstrap(config)
       if (expressApp && typeof expressApp.post === 'function') {
         const express = require('express');
         const { handleErrorReportRequest } = require('./api/error-report-endpoint');
-        // Add JSON body parser middleware for this route
-        expressApp.post('/api/report-error', express.json(), handleErrorReportRequest);
+        // Use express.json() middleware for JSON body parsing
+        expressApp.use('/api/report-error', express.json());
+        expressApp.post('/api/report-error', handleErrorReportRequest);
         console.log('✅ Registered error reporting endpoint: POST /api/report-error');
       }
     } catch (e) {

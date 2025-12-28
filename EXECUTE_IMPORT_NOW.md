@@ -101,3 +101,4 @@ pnpm install
 - Make sure you're in the correct directory
 - Check file permissions: `ls -la /opt/hunter-irrigation/import-hunter.csv`
 
+

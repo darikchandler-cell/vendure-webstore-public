@@ -61,3 +61,4 @@ echo ""
 echo "🚀 Error reporting is now configured and ready to use!"
 echo "   Restart your API server for changes to take effect."
 
+

@@ -80,3 +80,4 @@ export function generateDefaultFAQs(product: {
   return faqs;
 }
 
+

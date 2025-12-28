@@ -34,3 +34,4 @@ jobs:
             echo "✅ Storefront deployment complete!"
             docker compose ps storefront
 
+

@@ -49,3 +49,4 @@ echo "  cd $API_DIR"
 echo "  pnpm run import-woocommerce"
 echo ""
 
+

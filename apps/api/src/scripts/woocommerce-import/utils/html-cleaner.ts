@@ -234,3 +234,4 @@ export function extractCompatibility(description: string): string[] {
   return Array.from(new Set(compatibility.map(c => c.replace(/^[^\w]+|[^\w]+$/g, '')))).filter(c => c.length > 0);
 }
 
+

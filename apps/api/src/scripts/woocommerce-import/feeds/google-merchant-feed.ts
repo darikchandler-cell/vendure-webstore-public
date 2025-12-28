@@ -174,3 +174,4 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+

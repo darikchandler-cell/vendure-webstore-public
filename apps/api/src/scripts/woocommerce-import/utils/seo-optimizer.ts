@@ -301,3 +301,4 @@ export function generateLanguageSlug(name: string, languageCode: string): string
   return generateSlug(name);
 }
 
+

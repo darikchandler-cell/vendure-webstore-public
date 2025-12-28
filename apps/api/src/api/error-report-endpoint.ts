@@ -47,4 +47,3 @@ export async function handleErrorReportRequest(req: Request, res: Response) {
     });
   }
 }
-

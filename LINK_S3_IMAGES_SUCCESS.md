@@ -54,3 +54,4 @@ After encountering issues with Vendure's `AssetService.create()` method (which h
 - All images are successfully linked and should now appear in the Vendure storefront
 - The script can be re-run safely (it skips products that already have assets)
 
+

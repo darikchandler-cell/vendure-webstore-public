@@ -72,3 +72,4 @@ echo "   Visit: https://hunterirrigationsupply.com/admin"
 echo "   Navigate to: Catalog → Products"
 echo ""
 
+

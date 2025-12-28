@@ -77,3 +77,4 @@ After running, check:
 **Next Step:** Run via Hetzner Console (see above)
 **Time Estimate:** 30-60 minutes for full import (887 products)
 
+

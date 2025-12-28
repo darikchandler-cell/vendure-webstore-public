@@ -123,3 +123,4 @@ echo "💡 To remove the cron job:"
 echo "   crontab -e"
 echo "   (Remove the line with run-tax-rate-sync.sh)"
 
+

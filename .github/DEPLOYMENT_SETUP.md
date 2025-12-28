@@ -103,3 +103,4 @@ If automated deployment fails, you can always deploy manually:
 ssh root@178.156.194.89 'cd /opt/hunter-irrigation && git pull origin main && ./infra/execute-deployment.sh'
 ```
 
+

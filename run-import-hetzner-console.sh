@@ -44,3 +44,4 @@ echo "  cd $PROJECT_DIR/apps/api"
 echo "  pnpm run import-woocommerce"
 echo ""
 
+

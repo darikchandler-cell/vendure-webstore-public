@@ -114,7 +114,7 @@ async function findS3Images(sku: string, brandSlug: string): Promise<string[]> {
 
 /**
  * Create asset directly in database (bypasses AssetService issue)
- * This creates the asset record and stores the file reference
+ * This creates the asset record and stores the file in Vendure's asset directory
  */
 async function createAssetDirectly(
   filepath: string,
@@ -142,6 +142,28 @@ async function createAssetDirectly(
     };
     const mimeType = mimeTypes[ext] || 'image/jpeg';
 
+    // Copy file to Vendure's asset storage directory
+    // Vendure AssetServerPlugin serves from: ../static/assets
+    const assetUploadDir = path.join(process.cwd(), 'static', 'assets');
+    
+    // Ensure directory exists
+    if (!fs.existsSync(assetUploadDir)) {
+      fs.mkdirSync(assetUploadDir, { recursive: true });
+    }
+
+    // Generate unique filename to avoid conflicts
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(7);
+    const uniqueFilename = `${timestamp}-${randomStr}-${filename}`;
+    const targetPath = path.join(assetUploadDir, uniqueFilename);
+
+    // Copy file to asset directory
+    fs.copyFileSync(filepath, targetPath);
+
+    // Store relative path for Vendure AssetServerPlugin
+    // The plugin serves assets from /assets/{filename}
+    const assetSource = uniqueFilename; // Just the filename, AssetServerPlugin handles the path
+
     // Create asset record directly in database
     const assetRepo = connection.getRepository(ctx, Asset);
     const asset = assetRepo.create({
@@ -151,8 +173,8 @@ async function createAssetDirectly(
       fileSize: stats.size,
       width: 0, // Will be updated if image processing works
       height: 0,
-      source: s3Url, // Store S3 URL as source
-      preview: s3Url,
+      source: assetSource, // Store filename for AssetServerPlugin
+      preview: assetSource, // Store filename for AssetServerPlugin
     });
 
     const savedAsset = await assetRepo.save(asset);
