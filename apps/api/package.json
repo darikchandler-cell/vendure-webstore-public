@@ -23,6 +23,8 @@
     "check-asset-storage": "ts-node -r tsconfig-paths/register src/scripts/check-asset-storage.ts",
     "fix-asset-storage-raw": "ts-node -r tsconfig-paths/register src/scripts/fix-asset-storage-raw-sql.ts",
     "fix-asset-preview-urls": "ts-node -r tsconfig-paths/register src/scripts/fix-asset-preview-urls.ts",
+    "verify-asset-urls": "ts-node -r tsconfig-paths/register src/scripts/verify-asset-urls.ts",
+    "test-asset-url": "ts-node -r tsconfig-paths/register src/scripts/test-asset-url.ts",
     "sync-tax-rates": "ts-node -r tsconfig-paths/register src/scripts/sync-tax-rates.ts",
     "sync-tax-rates-email": "ts-node -r tsconfig-paths/register src/scripts/sync-tax-rates-with-email.ts",
     "lint": "eslint src --ext .ts",
