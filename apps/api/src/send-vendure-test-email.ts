@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { bootstrap, RequestContext, ChannelService, UserService, AdministratorService } from '@vendure/core';
+import { bootstrap, RequestContext, ChannelService, UserService, AdministratorService, LanguageCode } from '@vendure/core';
 import { config } from './vendure-config';
 import { getFromAddressForChannel, getFromName } from './email-handlers';
 

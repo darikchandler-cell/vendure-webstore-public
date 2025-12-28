@@ -117,13 +117,18 @@ async function testOrderEmails() {
         console.log(`✅ Found existing customer: ${customer.emailAddress}`);
       } else {
         // Create new customer
-        customer = await customerService.create(ctx, {
+        const createResult = await customerService.create(ctx, {
           firstName: 'Test',
           lastName: 'Customer',
           emailAddress: CUSTOMER_EMAIL,
           phoneNumber: '+1234567890',
         });
-        console.log(`✅ Created new customer: ${customer.emailAddress}`);
+        if ('id' in createResult) {
+          customer = createResult;
+          console.log(`✅ Created new customer: ${customer.emailAddress}`);
+        } else {
+          throw new Error(`Failed to create customer: ${createResult.errorCode}`);
+        }
       }
     } catch (error: any) {
       console.error('❌ Error finding/creating customer:', error.message);
@@ -137,22 +142,30 @@ async function testOrderEmails() {
     let order;
     try {
       // Try to get active order for customer
-      const activeOrder = await orderService.getActiveOrderForUser(ctx, customer.user?.id || 0);
-      
-      if (activeOrder) {
-        order = activeOrder;
-        console.log(`✅ Found active order: ${order.code || 'No code yet'}`);
+      if (customer.user?.id) {
+        const activeOrder = await orderService.getActiveOrderForUser(ctx, customer.user.id);
+        
+        if (activeOrder) {
+          order = activeOrder;
+          console.log(`✅ Found active order: ${order.code || 'No code yet'}`);
+        } else {
+          // Create new order
+          order = await orderService.create(ctx, customer.user.id);
+          console.log(`✅ Created new order`);
+        }
       } else {
-        // Create new order
-        order = await orderService.create(ctx, customer.user?.id || 0);
-        console.log(`✅ Created new order`);
+        throw new Error('Customer has no user ID');
       }
     } catch (error: any) {
       console.error('❌ Error getting/creating order:', error.message);
       // Try to create order directly
       try {
-        order = await orderService.create(ctx, customer.user?.id || 0);
-        console.log(`✅ Created new order (retry)`);
+        if (customer.user?.id) {
+          order = await orderService.create(ctx, customer.user.id);
+          console.log(`✅ Created new order (retry)`);
+        } else {
+          throw new Error('Customer has no user ID');
+        }
       } catch (e: any) {
         console.error('❌ Failed to create order:', e.message);
         await app.close();
@@ -173,7 +186,7 @@ async function testOrderEmails() {
       if (variants.items.length > 0) {
         variant = variants.items[0];
         console.log(`✅ Found product variant: ${variant.name} (${variant.sku})`);
-        console.log(`   Price: ${variant.priceWithTax / 100} ${channel.currencyCode}`);
+        console.log(`   Price: ${variant.priceWithTax / 100} ${channel.defaultCurrencyCode}`);
       } else {
         console.error('❌ No product variants found. Please seed products first.');
         console.log('   Run: pnpm run seed');
@@ -209,7 +222,7 @@ async function testOrderEmails() {
         province: 'CA',
         postalCode: '12345',
         countryCode: 'US',
-        phoneNumber: customer.phoneNumber || '+1234567890',
+        phoneNumber: ('phoneNumber' in customer ? customer.phoneNumber : undefined) || '+1234567890',
       });
       console.log('✅ Shipping address set');
     } catch (error: any) {
@@ -223,7 +236,7 @@ async function testOrderEmails() {
     try {
       const shippingMethods = await orderService.getEligibleShippingMethods(ctx, order.id);
       if (shippingMethods.length > 0) {
-        await orderService.setShippingMethod(ctx, order.id, shippingMethods[0].id);
+        await orderService.setShippingMethod(ctx, order.id, [shippingMethods[0].id]);
         console.log(`✅ Shipping method set: ${shippingMethods[0].name}`);
       } else {
         console.error('❌ No shipping methods available');
@@ -246,8 +259,14 @@ async function testOrderEmails() {
     // Transition order to ArrangingPayment
     console.log('💳 Transitioning order to payment...');
     try {
-      order = await orderService.transitionToState(ctx, order.id, 'ArrangingPayment');
-      console.log('✅ Order transitioned to ArrangingPayment');
+      if (!order) throw new Error('Order is undefined');
+      const transitionResult = await orderService.transitionToState(ctx, order.id, 'ArrangingPayment' as any);
+      if ('id' in transitionResult) {
+        order = transitionResult;
+        console.log('✅ Order transitioned to ArrangingPayment');
+      } else {
+        throw new Error(`Transition failed: ${transitionResult.errorCode}`);
+      }
     } catch (error: any) {
       console.error('❌ Error transitioning order:', error.message);
       await app.close();
@@ -257,15 +276,22 @@ async function testOrderEmails() {
 
     // Create payment
     console.log('💵 Creating payment...');
+    let paymentId: string | undefined;
     try {
-      const payment = await paymentService.createPayment(ctx, {
+      if (!order) throw new Error('Order is undefined');
+      const paymentResult = await paymentService.createPayment(ctx, order.id, {
         method: 'standard-payment',
         metadata: {
           test: true,
           testOrder: true,
         },
-      });
-      console.log(`✅ Payment created: ${payment.id}`);
+      } as any);
+      if ('id' in paymentResult) {
+        paymentId = paymentResult.id.toString();
+        console.log(`✅ Payment created: ${paymentId}`);
+      } else {
+        console.log('⚠️  Payment creation returned error, continuing...');
+      }
     } catch (error: any) {
       console.error('❌ Error creating payment:', error.message);
       console.log('   Trying to proceed anyway...');
@@ -283,27 +309,44 @@ async function testOrderEmails() {
       }
 
       // Settle payment (this will trigger order placement)
-      const payments = await paymentService.findAll(ctx, {
-        filter: { orderId: { eq: order.id } },
-      });
+      if (!order) throw new Error('Order is undefined');
+      
+      // Get payments for this order - PaymentService doesn't have findAll, use OrderService
+      const orderWithPayments = await orderService.findOne(ctx, order.id, ['payments']);
+      if (!orderWithPayments) throw new Error('Order not found');
 
-      if (payments.items.length > 0) {
-        await paymentService.settlePayment(ctx, payments.items[0].id);
+      if (orderWithPayments.payments && orderWithPayments.payments.length > 0) {
+        const payment = orderWithPayments.payments[0];
+        await paymentService.settlePayment(ctx, payment.id);
         console.log('✅ Payment settled');
       }
 
       // Transition to PaymentSettled
-      order = await orderService.transitionToState(ctx, order.id, 'PaymentSettled');
-      console.log('✅ Order transitioned to PaymentSettled');
+      const settledResult = await orderService.transitionToState(ctx, order.id, 'PaymentSettled' as any);
+      if ('id' in settledResult) {
+        order = settledResult;
+        console.log('✅ Order transitioned to PaymentSettled');
+      } else {
+        throw new Error(`Transition failed: ${settledResult.errorCode}`);
+      }
 
       // Finally, transition to Fulfillment (this triggers OrderPlacedEvent)
-      order = await orderService.transitionToState(ctx, order.id, 'Fulfillment');
-      console.log('✅ Order placed successfully!');
-      console.log(`   Order Code: ${order.code}`);
+      const fulfillmentResult = await orderService.transitionToState(ctx, order.id, 'Fulfillment' as any);
+      if ('id' in fulfillmentResult) {
+        order = fulfillmentResult;
+        console.log('✅ Order placed successfully!');
+        console.log(`   Order Code: ${order.code}`);
+      } else {
+        throw new Error(`Transition failed: ${fulfillmentResult.errorCode}`);
+      }
       console.log('');
       console.log('📧 Emails should now be sent:');
       console.log(`   - Order confirmation to: ${CUSTOMER_EMAIL}`);
       console.log(`   - Order notification to: ${ADMIN_EMAIL}`);
+      if (order) {
+        console.log(`   Order Code: ${order.code || 'N/A'}`);
+        console.log(`   Total: ${order.totalWithTax ? order.totalWithTax / 100 : 'N/A'} ${channel.defaultCurrencyCode}`);
+      }
       console.log('');
 
     } catch (error: any) {
@@ -315,9 +358,11 @@ async function testOrderEmails() {
       console.log('💡 Alternative: Manually trigger OrderPlacedEvent');
       try {
         // Manually publish OrderPlacedEvent to trigger emails
-        await eventBus.publish(new OrderPlacedEvent(ctx, order, order));
-        console.log('✅ OrderPlacedEvent published manually');
-        console.log('📧 Emails should now be sent');
+        if (order) {
+          await eventBus.publish(new OrderPlacedEvent(ctx, order));
+          console.log('✅ OrderPlacedEvent published manually');
+          console.log('📧 Emails should now be sent');
+        }
       } catch (e: any) {
         console.error('❌ Error publishing event:', e.message);
       }
@@ -325,10 +370,14 @@ async function testOrderEmails() {
     console.log('');
 
     console.log('📋 Summary:');
-    console.log(`   Order Code: ${order.code || 'N/A'}`);
-    console.log(`   Customer: ${customer.emailAddress}`);
+    if (order) {
+      console.log(`   Order Code: ${order.code || 'N/A'}`);
+      console.log(`   Total: ${order.totalWithTax ? order.totalWithTax / 100 : 'N/A'} ${channel.defaultCurrencyCode}`);
+    }
+    if ('emailAddress' in customer) {
+      console.log(`   Customer: ${customer.emailAddress}`);
+    }
     console.log(`   Channel: ${channel.code}`);
-    console.log(`   Total: ${order.totalWithTax / 100} ${channel.currencyCode}`);
     console.log('');
     console.log('✅ Order email test complete!');
     console.log('');
